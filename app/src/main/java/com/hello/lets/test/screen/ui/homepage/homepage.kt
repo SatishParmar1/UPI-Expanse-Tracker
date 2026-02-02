@@ -2,7 +2,6 @@ package com.hello.lets.test.screen.ui.homepage
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -31,6 +30,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+
 @Preview()
 /*@OptIn(ExperimentalMaterial3Api::class)*/ // Needed if you use TopAppBar
 @Composable
@@ -38,8 +39,7 @@ fun Homepage() {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
     ) { innerPadding ->
-        // 'innerPadding' calculates the space needed for the TopBar/BottomBar
-        // You MUST apply it to your root content container (Column/Box)
+
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -89,6 +89,27 @@ fun Homepage() {
             }
             Spacer(modifier = Modifier.height(15.dp))
             PreviewTotalSpentSection()
+            Spacer(modifier = Modifier.height(15.dp))
+            Row(
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment =  Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(24.dp)) // Slightly rounder card
+                        .background(MaterialTheme.colorScheme.primary)   // Dark Green Background from design
+                        .padding(6.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "LIVE SYNC",
+                    fontSize = 18.sp, // Changed from dp to sp
+                    fontFamily = LiterataFontFamily, // This looks correct!
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                )
+            }
+
         }
     }
 }
@@ -181,7 +202,6 @@ fun BudgetDonutChart(
     }
 }
 
-// --- PREVIEW ---
 
 @Composable
 fun PreviewTotalSpentSection() {
@@ -204,19 +224,12 @@ fun TotalSpentSection(
     modifier: Modifier = Modifier
 ) {
     // Colors
-    val primaryColor = Color(0xFF39E079) // Bright Green
-    val errorColor = Color(0xFFFF3D5E)    // Red
-    val whiteTransparent60 = Color.White.copy(alpha = 0.6f)
-    val whiteTransparent40 = Color.White.copy(alpha = 0.4f)
-    val whiteTransparent10 = Color.White.copy(alpha = 0.1f)
+
     val dividerColor = Color.White.copy(alpha = 0.08f) // Very subtle line
 
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
-        // -----------------------------------------------------
-        // TOP SECTION: Text + Donut Chart (Existing)
-        // -----------------------------------------------------
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -232,7 +245,7 @@ fun TotalSpentSection(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     fontFamily = LiterataFontFamily,
-                    color = whiteTransparent60
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
                     text = "₹45,000",
@@ -247,19 +260,18 @@ fun TotalSpentSection(
                 Text(
                     text = "+12% vs last month",
                     fontSize = 12.sp,
-                    color = whiteTransparent40,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontFamily = LiterataFontFamily
                 )
             }
 
-            // Right: Donut Chart
             BudgetDonutChart(
                 spentAmount = 28f,
                 totalBudget = 100f,
                 chartSize = 85.dp,
                 strokeWidth = 10.dp,
-                primaryColor = primaryColor,
-                secondaryColor = errorColor,
+                primaryColor = MaterialTheme.colorScheme.primary,
+                secondaryColor = MaterialTheme.colorScheme.error,
                 textColor = Color.White
             )
         }
@@ -273,30 +285,28 @@ fun TotalSpentSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left: Remaining Label
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = "REMAINING BUDGET",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = LiterataFontFamily,
-                    color = whiteTransparent40,
-                    letterSpacing = 1.sp // Caps usually look better with spacing
+                    color = MaterialTheme.colorScheme.onBackground,
+                    letterSpacing = 1.sp
                 )
                 Text(
                     text = "₹5,000",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = LiterataFontFamily,
-                    color = primaryColor // Green color
+                    color =MaterialTheme.colorScheme.primary,
                 )
             }
 
-            // Right: View Analytics Button
             OutlinedButton(
                 onClick = { /* TODO: Navigate */ },
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, whiteTransparent10), // Subtle border
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground), // Subtle border
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = Color.Transparent,
                     contentColor = Color.White

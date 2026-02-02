@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Core Brand Greens -->
+    <color name="green_primary">#22C55E</color>      <!-- Main accent green -->
+    <color name="green_secondary">#16A34A</color>    <!-- Darker green -->
+    <color name="green_light">#4ADE80</color>        <!-- Highlights / progress -->
+    <color name="green_muted">#0F2A1D</color>        <!-- Cards / surfaces -->
+
+    <!-- Backgrounds -->
+    <color name="bg_primary">#0B1F16</color>         <!-- App background -->
+    <color name="bg_secondary">#102820</color>       <!-- Card background -->
+    <color name="bg_tertiary">#16382C</color>        <!-- Elevated cards -->
+
+    <!-- Text -->
+    <color name="text_primary">#E6F4EA</color>       <!-- Main text -->
+    <color name="text_secondary">#9DB5A9</color>     <!-- Subtext -->
+    <color name="text_disabled">#5F766C</color>
+
+    <!-- Status Colors -->
+    <color name="success">#22C55E</color>            <!-- Income / positive -->
+    <color name="warning">#FACC15</color>
+    <color name="error">#EF4444</color>              <!-- Debit / expense -->
+
+    <!-- Charts -->
+    <color name="chart_green">#22C55E</color>
+    <color name="chart_red">#EF4444</color>
+    <color name="chart_gray">#1F3D32</color>
+
+    <!-- Icons -->
+    <color name="icon_active">#22C55E</color>
+    <color name="icon_inactive">#6B8F7E</color>
+
+    <!-- System -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+</resources>

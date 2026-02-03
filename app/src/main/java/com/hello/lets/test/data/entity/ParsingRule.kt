@@ -29,7 +29,13 @@ data class ParsingRule(
     /** Keyword to match in merchant name (e.g., "Swiggy", "Uber") */
     val keyword: String,
     
-    /** Category to assign when keyword matches */
+    /** Regex pattern for more complex matching */
+    val pattern: String = "",
+    
+    /** Category name to assign (for display/creation) */
+    val extractedCategory: String? = null,
+    
+    /** Category ID (optional link to Category entity) */
     val categoryId: Long? = null,
     
     /** Whether this rule is currently active */

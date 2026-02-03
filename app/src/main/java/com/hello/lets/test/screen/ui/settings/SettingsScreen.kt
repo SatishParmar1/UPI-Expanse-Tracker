@@ -5,11 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,35 +16,44 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hello.lets.test.data.AppDatabase
-import com.hello.lets.test.data.entity.ExcludedSender
-import com.hello.lets.test.data.entity.ParsingRule
-import com.hello.lets.test.data.repository.TransactionRepository
 import com.hello.lets.test.ui.theme.LiterataFontFamily
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
  * Settings screen with privacy, SMS parsing, appearance, and account options.
  */
+@Preview
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
-    val parsingRules by viewModel.parsingRules.collectAsState()
-    val excludedSenders by viewModel.excludedSenders.collectAsState()
-    val activeRulesCount by viewModel.activeRulesCount.collectAsState()
-    val excludedCount by viewModel.excludedCount.collectAsState()
+fun SettingsScreen(
+    viewModel: SettingsViewModel = viewModel(),
+    onNavigateToKeywordRules: () -> Unit = {},
+    onNavigateToExcludedSenders: () -> Unit = {},
+    onNavigateToBackup: () -> Unit = {},
+    onExportData: () -> Unit = {},
+    onDeleteAllData: () -> Unit = {}
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    
+    val primaryGreen = Color(0xFF4CAF50)
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    
+    var searchQuery by remember { mutableStateOf("") }
     
     Scaffold(
+        containerColor = backgroundColor,
         topBar = {
             TopAppBar(
                 title = {
@@ -54,12 +61,26 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         text = "Settings",
                         fontSize = 28.sp,
                         fontFamily = LiterataFontFamily,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                actions = {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(surfaceColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Person,
+                            contentDescription = "Profile",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
             )
         }
     ) { padding ->
@@ -70,157 +91,166 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Search Bar
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            text = "Search settings...",
+                            fontFamily = LiterataFontFamily
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = surfaceColor,
+                        focusedContainerColor = surfaceColor,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedBorderColor = primaryGreen
+                    ),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
             // Privacy & Security Section
             item {
                 SectionHeader("PRIVACY & SECURITY")
             }
             
             item {
-                SettingsItem(
+                SettingsToggleItem(
                     icon = Icons.Rounded.Lock,
                     title = "App Lock",
                     subtitle = null,
-                    trailing = {
-                        var checked by remember { mutableStateOf(false) }
-                        Switch(
-                            checked = checked,
-                            onCheckedChange = { checked = it }
-                        )
-                    }
+                    isChecked = uiState.isAppLockEnabled,
+                    onCheckedChange = { viewModel.toggleAppLock() }
                 )
             }
             
             item {
-                SettingsItem(
-                    icon = Icons.Rounded.Face,
+                SettingsToggleItem(
+                    icon = Icons.Rounded.Fingerprint,
                     title = "Face ID",
                     subtitle = null,
-                    trailing = {
-                        var checked by remember { mutableStateOf(true) }
-                        Switch(
-                            checked = checked,
-                            onCheckedChange = { checked = it }
-                        )
-                    }
+                    isChecked = uiState.isBiometricEnabled,
+                    onCheckedChange = { viewModel.toggleBiometric() }
                 )
             }
             
             item {
-                SettingsItem(
-                    icon = Icons.Rounded.Refresh,
+                SettingsNavigationItem(
+                    icon = Icons.Rounded.Backup,
                     title = "Local Backup",
-                    subtitle = "Last backup: Today, 9:00 AM",
-                    onClick = { /* TODO */ }
+                    subtitle = "Last backup: ${uiState.lastBackupTime}",
+                    onClick = onNavigateToBackup
                 )
             }
             
             item {
-                LocalStorageIndicator()
+                EncryptionBadge()
+                Spacer(modifier = Modifier.height(16.dp))
             }
             
             // SMS Parsing Section
             item {
-                Spacer(modifier = Modifier.height(16.dp))
                 SectionHeader("SMS PARSING")
             }
             
             item {
-                SettingsItem(
-                    icon = Icons.Rounded.Settings,
+                SettingsNavigationItem(
+                    icon = Icons.Rounded.Rule,
                     title = "Keyword Rules",
-                    subtitle = "$activeRulesCount custom rules active",
-                    onClick = { /* TODO: Navigate to rules screen */ }
+                    subtitle = "${uiState.activeRulesCount} custom rules active",
+                    onClick = onNavigateToKeywordRules
                 )
             }
             
             item {
-                SettingsItem(
-                    icon = Icons.Rounded.Clear,
+                SettingsNavigationItem(
+                    icon = Icons.Rounded.Block,
                     title = "Excluded Senders",
-                    subtitle = "$excludedCount blocked",
-                    onClick = { /* TODO: Navigate to excluded senders */ }
+                    subtitle = "${uiState.excludedSendersCount} blocked",
+                    onClick = onNavigateToExcludedSenders
                 )
+                Spacer(modifier = Modifier.height(16.dp))
             }
             
             // Appearance Section
             item {
-                Spacer(modifier = Modifier.height(16.dp))
                 SectionHeader("APPEARANCE")
             }
             
             item {
-                SettingsItem(
-                    icon = Icons.Rounded.Brightness4,
+                SettingsNavigationItem(
+                    icon = Icons.Rounded.DarkMode,
                     title = "Theme",
-                    subtitle = "System Dark",
-                    onClick = { /* TODO */ }
+                    value = uiState.theme,
+                    onClick = { viewModel.showThemeDialog() }
                 )
             }
             
             item {
-                SettingsItem(
+                SettingsAccentItem(
                     icon = Icons.Rounded.Palette,
                     title = "Accents",
-                    trailing = {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                        )
-                    },
-                    onClick = { /* TODO */ }
+                    selectedColor = uiState.accentColor,
+                    onClick = { viewModel.showAccentDialog() }
                 )
+                Spacer(modifier = Modifier.height(16.dp))
             }
             
             // Account Section
             item {
-                Spacer(modifier = Modifier.height(16.dp))
                 SectionHeader("ACCOUNT")
             }
             
             item {
-                SettingsItem(
+                SettingsNavigationItem(
                     icon = Icons.Rounded.Upload,
                     title = "Export Data",
-                    onClick = { /* TODO */ }
+                    subtitle = null,
+                    onClick = onExportData
                 )
             }
             
             item {
-                SettingsItem(
-                    icon = Icons.Rounded.Delete,
+                SettingsDangerItem(
+                    icon = Icons.Rounded.DeleteForever,
                     title = "Delete All Data",
-                    titleColor = MaterialTheme.colorScheme.error,
-                    onClick = { viewModel.deleteAllData() }
+                    onClick = onDeleteAllData
                 )
             }
             
-            // Version info
+            // Version Info
             item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Box(
+                Spacer(modifier = Modifier.height(32.dp))
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "Version 2.4.0 (Build 302)",
-                            fontSize = 12.sp,
-                            fontFamily = LiterataFontFamily,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "© 2024 FinanceTracker Inc.",
-                            fontSize = 12.sp,
-                            fontFamily = LiterataFontFamily,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    }
+                    Text(
+                        text = "Version 2.4.0 (Build 302)",
+                        fontSize = 12.sp,
+                        fontFamily = LiterataFontFamily,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = "© 2024 FinanceTracker Inc.",
+                        fontSize = 12.sp,
+                        fontFamily = LiterataFontFamily,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    )
                 }
-            }
-            
-            item {
                 Spacer(modifier = Modifier.height(100.dp))
             }
         }
@@ -228,172 +258,382 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 }
 
 @Composable
-fun SectionHeader(title: String) {
+private fun SectionHeader(title: String) {
     Text(
         text = title,
-        fontSize = 12.sp,
+        fontSize = 11.sp,
         fontFamily = LiterataFontFamily,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         letterSpacing = 1.sp,
         modifier = Modifier.padding(vertical = 8.dp)
     )
 }
 
 @Composable
-fun SettingsItem(
+private fun SettingsToggleItem(
     icon: ImageVector,
     title: String,
-    subtitle: String? = null,
-    titleColor: Color = MaterialTheme.colorScheme.onSurface,
-    trailing: @Composable (() -> Unit)? = null,
-    onClick: (() -> Unit)? = null
+    subtitle: String?,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
 ) {
-    Row(
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val primaryGreen = Color(0xFF4CAF50)
+    
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .then(
-                if (onClick != null) Modifier.clickable { onClick() }
-                else Modifier
-            )
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .background(surfaceColor)
+            .clickable { onCheckedChange(!isChecked) }
+            .padding(16.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        
-        Spacer(modifier = Modifier.width(16.dp))
-        
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                fontFamily = LiterataFontFamily,
-                fontWeight = FontWeight.Medium,
-                color = titleColor
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    fontSize = 12.sp,
-                    fontFamily = LiterataFontFamily,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(primaryGreen.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = primaryGreen,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 15.sp,
+                        fontFamily = LiterataFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            fontSize = 12.sp,
+                            fontFamily = LiterataFontFamily,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
-        }
-        
-        if (trailing != null) {
-            trailing()
-        } else if (onClick != null) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            
+            Switch(
+                checked = isChecked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = primaryGreen,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                )
             )
         }
     }
 }
 
 @Composable
-fun LocalStorageIndicator() {
-    Row(
+private fun SettingsNavigationItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    value: String? = null,
+    onClick: () -> Unit
+) {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val primaryGreen = Color(0xFF4CAF50)
+    
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .clip(RoundedCornerShape(16.dp))
+            .background(surfaceColor)
+            .clickable(onClick = onClick)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(primaryGreen.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = primaryGreen,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 15.sp,
+                        fontFamily = LiterataFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            fontSize = 12.sp,
+                            fontFamily = LiterataFontFamily,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (value != null) {
+                    Text(
+                        text = value,
+                        fontSize = 14.sp,
+                        fontFamily = LiterataFontFamily,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsAccentItem(
+    icon: ImageVector,
+    title: String,
+    selectedColor: Color,
+    onClick: () -> Unit
+) {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val primaryGreen = Color(0xFF4CAF50)
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(surfaceColor)
+            .clickable(onClick = onClick)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(primaryGreen.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = primaryGreen,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Text(
+                    text = title,
+                    fontSize = 15.sp,
+                    fontFamily = LiterataFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(selectedColor)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsDangerItem(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit
+) {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val dangerColor = Color(0xFFEF4444)
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(surfaceColor)
+            .clickable(onClick = onClick)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(dangerColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = dangerColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Text(
+                    text = title,
+                    fontSize = 15.sp,
+                    fontFamily = LiterataFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    color = dangerColor
+                )
+            }
+            
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = dangerColor,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EncryptionBadge() {
+    val primaryGreen = Color(0xFF4CAF50)
+    
+    Row(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
+        Icon(
+            imageVector = Icons.Rounded.Shield,
+            contentDescription = null,
+            tint = primaryGreen,
+            modifier = Modifier.size(14.dp)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = "DATA ENCRYPTED LOCALLY",
             fontSize = 10.sp,
             fontFamily = LiterataFontFamily,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium,
+            color = primaryGreen,
             letterSpacing = 1.sp
         )
     }
 }
 
-/**
- * ViewModel for Settings screen.
- */
+// ViewModel
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+    private val db = AppDatabase.getDatabase(application)
     
-    private val database = AppDatabase.getDatabase(application)
-    private val repository = TransactionRepository(
-        database.transactionDao(),
-        database.categoryDao(),
-        database.parsingRuleDao(),
-        database.excludedSenderDao()
-    )
+    private val _uiState = MutableStateFlow(SettingsUiState())
+    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     
-    val parsingRules: StateFlow<List<ParsingRule>> = repository.getAllParsingRules()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    init {
+        loadSettings()
+    }
     
-    val excludedSenders: StateFlow<List<ExcludedSender>> = repository.getAllExcludedSenders()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    
-    val activeRulesCount: StateFlow<Int> = repository.getActiveRulesCount()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-    
-    val excludedCount: StateFlow<Int> = repository.getExcludedSenderCount()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-    
-    fun deleteAllData() {
+    private fun loadSettings() {
         viewModelScope.launch {
-            // TODO: Add confirmation dialog
-            // database.transactionDao().deleteAll()
+            // Load from shared preferences and database
+            db.parsingRuleDao().getActiveCount().collect { count ->
+                _uiState.value = _uiState.value.copy(activeRulesCount = count)
+            }
+        }
+        
+        viewModelScope.launch {
+            db.excludedSenderDao().getCount().collect { count ->
+                _uiState.value = _uiState.value.copy(excludedSendersCount = count)
+            }
         }
     }
     
-    fun addParsingRule(rule: ParsingRule) {
-        viewModelScope.launch {
-            repository.insertParsingRule(rule)
-        }
+    fun toggleAppLock() {
+        _uiState.value = _uiState.value.copy(isAppLockEnabled = !_uiState.value.isAppLockEnabled)
     }
     
-    fun updateParsingRule(rule: ParsingRule) {
-        viewModelScope.launch {
-            repository.updateParsingRule(rule)
-        }
+    fun toggleBiometric() {
+        _uiState.value = _uiState.value.copy(isBiometricEnabled = !_uiState.value.isBiometricEnabled)
     }
     
-    fun deleteParsingRule(rule: ParsingRule) {
-        viewModelScope.launch {
-            repository.deleteParsingRule(rule)
-        }
+    fun showThemeDialog() {
+        // Show theme selection dialog
     }
     
-    fun addExcludedSender(sender: ExcludedSender) {
-        viewModelScope.launch {
-            repository.insertExcludedSender(sender)
-        }
-    }
-    
-    fun removeExcludedSender(sender: ExcludedSender) {
-        viewModelScope.launch {
-            repository.deleteExcludedSender(sender)
-        }
+    fun showAccentDialog() {
+        // Show accent color selection dialog
     }
 }
+
+data class SettingsUiState(
+    val isAppLockEnabled: Boolean = false,
+    val isBiometricEnabled: Boolean = true,
+    val lastBackupTime: String = "Today, 9:00 AM",
+    val activeRulesCount: Int = 12,
+    val excludedSendersCount: Int = 3,
+    val theme: String = "System Dark",
+    val accentColor: Color = Color(0xFF4CAF50)
+)

@@ -27,15 +27,44 @@ class SmsReader(private val context: Context) {
     )
     
     /**
-     * Bank SMS sender patterns - typically in format XX-BANKNAME or XY-BANKABB
+     * Bank SMS sender patterns - covers common Indian bank formats
+     * Examples: AD-HDFCBK, VM-SBIINB, AX-ICICI, JD-PAYTMB, BZ-PHONEPE
      */
     private val bankSenderPatterns = listOf(
-        Regex("^[A-Z]{2}-[A-Z]{2,}$"),           // XX-HDFCBK, AX-ICICI
-        Regex("^[A-Z]{2}-[A-Z0-9]{4,}$"),        // VM-SBIINB
-        Regex("^[A-Z]{2}-[A-Z]{3,}BK$"),         // XX-HDFCBK
-        Regex("^[A-Z]{2}-[A-Z]{3,}BNK$"),        // XX-ICICBNK
-        Regex(".*BANK.*", RegexOption.IGNORE_CASE), // Contains BANK
-        Regex(".*UPI.*", RegexOption.IGNORE_CASE),  // Contains UPI
+        // Standard bank formats: XX-BANKNAME
+        Regex("^[A-Z]{2}-[A-Z]{2,}$"),              // XX-HDFCBK, AX-ICICI
+        Regex("^[A-Z]{2}-[A-Z0-9]{4,}$"),           // VM-SBIINB
+        Regex("^[A-Z]{2}-[A-Z]{3,}BK$"),            // XX-HDFCBK
+        Regex("^[A-Z]{2}-[A-Z]{3,}BNK$"),           // XX-ICICBNK
+        Regex("^[A-Z]{2}-[A-Z]{3,}BANK$"),          // XX-HDFCBANK
+        
+        // UPI and payment apps
+        Regex(".*PAYTM.*", RegexOption.IGNORE_CASE),
+        Regex(".*PHONEPE.*", RegexOption.IGNORE_CASE),
+        Regex(".*GPAY.*", RegexOption.IGNORE_CASE),
+        Regex(".*GOOGLEPAY.*", RegexOption.IGNORE_CASE),
+        Regex(".*AMAZONPAY.*", RegexOption.IGNORE_CASE),
+        Regex(".*BHIM.*", RegexOption.IGNORE_CASE),
+        
+        // Bank specific patterns
+        Regex(".*BANK.*", RegexOption.IGNORE_CASE),
+        Regex(".*UPI.*", RegexOption.IGNORE_CASE),
+        Regex(".*CARD.*", RegexOption.IGNORE_CASE),
+        
+        // Common bank sender IDs
+        Regex(".*HDFC.*", RegexOption.IGNORE_CASE),
+        Regex(".*ICICI.*", RegexOption.IGNORE_CASE),
+        Regex(".*SBI.*", RegexOption.IGNORE_CASE),
+        Regex(".*AXIS.*", RegexOption.IGNORE_CASE),
+        Regex(".*KOTAK.*", RegexOption.IGNORE_CASE),
+        Regex(".*IDFC.*", RegexOption.IGNORE_CASE),
+        Regex(".*INDUS.*", RegexOption.IGNORE_CASE),
+        Regex(".*BOB.*", RegexOption.IGNORE_CASE),    // Bank of Baroda
+        Regex(".*PNB.*", RegexOption.IGNORE_CASE),    // Punjab National Bank
+        Regex(".*CITI.*", RegexOption.IGNORE_CASE),
+        Regex(".*HSBC.*", RegexOption.IGNORE_CASE),
+        Regex(".*AMEX.*", RegexOption.IGNORE_CASE),   // American Express
+        Regex(".*CREDIT.*", RegexOption.IGNORE_CASE), // Credit card messages
     )
     
     /**
@@ -103,10 +132,11 @@ class SmsReader(private val context: Context) {
     
     /**
      * Check if an SMS is likely a bank/transaction message.
+     * Uses flexible matching to catch more transaction messages.
      */
     fun isBankSms(address: String, body: String): Boolean {
         // Check sender pattern
-        val isBankSender = bankSenderPatterns.any { it.matches(address) }
+        val isBankSender = bankSenderPatterns.any { it.matches(address) || it.containsMatchIn(address) }
         
         // Check for transaction keywords in body
         val hasTransactionKeywords = transactionKeywords.any { keyword ->
@@ -116,7 +146,13 @@ class SmsReader(private val context: Context) {
         // Check for amount pattern
         val hasAmount = amountPattern.containsMatchIn(body)
         
-        return (isBankSender && hasTransactionKeywords && hasAmount)
+        // More flexible matching:
+        // 1. If sender matches bank pattern AND has amount
+        // 2. OR if body has transaction keywords AND amount
+        // 3. OR if sender matches bank pattern AND has transaction keywords
+        return (isBankSender && hasAmount) || 
+               (hasTransactionKeywords && hasAmount) ||
+               (isBankSender && hasTransactionKeywords)
     }
     
     companion object {

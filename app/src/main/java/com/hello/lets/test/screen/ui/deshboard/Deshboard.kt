@@ -30,6 +30,7 @@ import androidx.navigation.compose.rememberNavController
 import com.hello.lets.test.screen.ui.analytics.AnalyticsScreen
 import com.hello.lets.test.screen.ui.goals.GoalsScreen
 import com.hello.lets.test.screen.ui.homepage.Homepage
+import com.hello.lets.test.screen.ui.settings.KeywordRulesScreen
 import com.hello.lets.test.screen.ui.settings.SettingsScreen
 
 /**
@@ -71,7 +72,17 @@ fun AppNavHost(
             AnalyticsScreen()
         }
         composable(Destination.SETTINGS.route) {
-            SettingsScreen()
+            SettingsScreen(
+                onNavigateToKeywordRules = {
+                    navController.navigate("keyword_rules")
+                }
+            )
+        }
+        // Keyword Rules sub-screen
+        composable("keyword_rules") {
+            KeywordRulesScreen(
+                onBackClick = { navController.popBackStack() }
+            )
         }
     }
 }

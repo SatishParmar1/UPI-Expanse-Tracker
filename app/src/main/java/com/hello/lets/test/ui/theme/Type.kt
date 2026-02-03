@@ -17,7 +17,7 @@ val provider = GoogleFont.Provider(
 )
 
 // 2. Define the specific Font Name
-val literataFontName = GoogleFont("Literata")
+/*val literataFontName = GoogleFont("Literata")
 
 // 3. Create the FontFamily
 // This connects the name "Literata" to the provider so it can be downloaded.
@@ -25,8 +25,17 @@ val LiterataFontFamily = FontFamily(
     Font(googleFont = literataFontName, fontProvider = provider),
     // You can add specific weights if you want specific variants to load:
     Font(googleFont = literataFontName, fontProvider = provider, weight = FontWeight.Bold)
-)
+)*/
 
+val nunitoFontName = GoogleFont("Nunito")
+
+// 2. Create the FontFamily
+val LiterataFontFamily = FontFamily(
+    Font(googleFont = nunitoFontName, fontProvider = provider, weight = FontWeight.Normal),
+    Font(googleFont = nunitoFontName, fontProvider = provider, weight = FontWeight.Medium),
+    Font(googleFont = nunitoFontName, fontProvider = provider, weight = FontWeight.SemiBold),
+    Font(googleFont = nunitoFontName, fontProvider = provider, weight = FontWeight.Bold)
+)
 val Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = LiterataFontFamily, // <--- 4. Assign it here

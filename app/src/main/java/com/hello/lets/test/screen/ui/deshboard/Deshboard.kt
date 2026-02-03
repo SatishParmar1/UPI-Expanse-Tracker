@@ -1,5 +1,6 @@
 package com.hello.lets.test.screen.ui.deshboard
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
@@ -88,6 +89,7 @@ fun Deshboard(modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
@@ -118,11 +120,11 @@ fun Deshboard(modifier: Modifier = Modifier) {
                                 contentDescription = destination.contentDescription
                             )
                         },
-                        label = { 
+                        label = {
                             Text(
                                 text = destination.label,
                                 maxLines = 1
-                            ) 
+                            )
                         },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,

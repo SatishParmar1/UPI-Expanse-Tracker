@@ -6,46 +6,40 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+// ... inside your Theme.kt
 
-private val DarkColorScheme = darkColorScheme(
+val DarkColorScheme = darkColorScheme(
     primary = GreenPrimary,
-    secondary = GreenSecondary,
-    tertiary = GreenLight,
-
     background = DarkBackground,
+
+    // 1. Standard Cards (like the Uber/Salary rows)
     surface = DarkSurface,
+
+    // 2. WIDGETS (like the Donut Chart background or big containers)
     surfaceVariant = DarkSurfaceVariant,
 
-
-    onPrimary = Color.Black,
-    onSecondary = Color.White,
-    onTertiary = Color.Black,
-
-    onBackground = TextPrimary,
-    onSurface = TextPrimary,
-    onSurfaceVariant = TextSecondary,
-
+    onBackground = DarkTextPrimary,
+    onSurface = DarkTextPrimary,
+    onSurfaceVariant = DarkTextSecondary,
     error = ErrorRed,
-    onError = Color.White
+    outlineVariant = Color.White.copy(alpha = 0.1f)
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = GreenPrimary,
-    secondary = GreenSecondary,
-    tertiary = GreenLight,
+val LightColorScheme = lightColorScheme(
+    primary = GreenPrimaryLight,
+    background = LightBackground,
 
-    background = Color(0xFFF4FBF7),
-    surface = Color.White,
+    // 1. Standard Cards (White)
+    surface = LightSurface,
 
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.Black,
+    // 2. WIDGETS (Soft Mint/Grey for contrast against the white cards)
+    surfaceVariant = LightSurfaceVariant,
 
-    onBackground = Color(0xFF102820),
-    onSurface = Color(0xFF102820),
-
-    error = ErrorRed,
-    onError = Color.White
+    onBackground = LightTextPrimary,
+    onSurface = LightTextPrimary,
+    onSurfaceVariant = LightTextSecondary,
+    error = Color(0xFFDC2626),
+    outlineVariant = Color.Black.copy(alpha = 0.1f)
 )
 
 @Composable

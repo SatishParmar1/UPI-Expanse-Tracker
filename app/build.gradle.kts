@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -53,6 +54,25 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.compose.ui.text)
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    // Room Database
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+    
+    // WorkManager for background sync
+    implementation(libs.androidx.work.runtime.ktx)
+    
+    // ViewModel Compose
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    
+    // Biometric for app lock
+    implementation(libs.androidx.biometric)
+    
+    // Splash Screen
+    implementation(libs.androidx.core.splashscreen)
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

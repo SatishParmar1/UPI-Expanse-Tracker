@@ -22,8 +22,9 @@ class AppPreferences(context: Context) {
         private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
         
         // Appearance settings
-        private const val KEY_DARK_MODE = "dark_mode"
+        private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_ACCENT_COLOR = "accent_color"
+        private const val KEY_LAST_BACKUP = "last_backup"
         
         // Budget settings
         private const val KEY_MONTHLY_BUDGET = "monthly_budget"
@@ -53,13 +54,24 @@ class AppPreferences(context: Context) {
         set(value) = prefs.edit { putBoolean(KEY_BIOMETRIC_ENABLED, value) }
     
     // Appearance Settings
-    var isDarkMode: Boolean
-        get() = prefs.getBoolean(KEY_DARK_MODE, true) // Default: dark mode
-        set(value) = prefs.edit { putBoolean(KEY_DARK_MODE, value) }
+    /**
+     * Theme Mode:
+     * 0 = System Default
+     * 1 = Light
+     * 2 = Dark
+     */
+    var themeMode: Int
+        get() = prefs.getInt(KEY_THEME_MODE, 2) // Default: Dark (2)
+        set(value) = prefs.edit { putInt(KEY_THEME_MODE, value) }
     
     var accentColor: String
         get() = prefs.getString(KEY_ACCENT_COLOR, "#4CAF50") ?: "#4CAF50"
         set(value) = prefs.edit { putString(KEY_ACCENT_COLOR, value) }
+        
+    // Backup
+    var lastBackupTime: Long
+        get() = prefs.getLong(KEY_LAST_BACKUP, 0L)
+        set(value) = prefs.edit { putLong(KEY_LAST_BACKUP, value) }
     
     // Budget Settings
     var monthlyBudget: Float
@@ -75,6 +87,8 @@ class AppPreferences(context: Context) {
      * Clear all preferences.
      */
     fun clear() {
+        val firstRun = isFirstRun
         prefs.edit { clear() }
+        isFirstRun = firstRun
     }
 }

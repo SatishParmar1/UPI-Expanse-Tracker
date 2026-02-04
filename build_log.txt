@@ -19,8 +19,13 @@
 > Task :app:kspDebugKotlin UP-TO-DATE
 
 > Task :app:compileDebugKotlin FAILED
-e: file:///D:/learnkotline/app/src/main/java/com/hello/lets/test/screen/ui/onboarding/OnboardingScreen.kt:514:21 Unresolved reference 'BankAccountCard'.
-e: file:///D:/learnkotline/app/src/main/java/com/hello/lets/test/screen/ui/onboarding/OnboardingScreen.kt:558:21 Unresolved reference 'BankQuickAddItem'.
+e: file:///D:/learnkotline/app/src/main/java/com/hello/lets/test/screen/ui/settings/SettingsScreen.kt:201:33 Unresolved reference 'showThemeDialog'.
+e: file:///D:/learnkotline/app/src/main/java/com/hello/lets/test/screen/ui/settings/SettingsScreen.kt:210:33 Unresolved reference 'showAccentDialog'.
+e: file:///D:/learnkotline/app/src/main/java/com/hello/lets/test/screen/ui/settings/SettingsScreen.kt:226:25 Unresolved reference 'coroutineScope'.
+e: file:///D:/learnkotline/app/src/main/java/com/hello/lets/test/screen/ui/settings/SettingsScreen.kt:234:29 Unresolved reference 'context'.
+e: file:///D:/learnkotline/app/src/main/java/com/hello/lets/test/screen/ui/settings/SettingsScreen.kt:244:33 Unresolved reference 'showDeleteDialog'.
+e: file:///D:/learnkotline/app/src/main/java/com/hello/lets/test/screen/ui/settings/SettingsScreen.kt:663:17 Argument already passed for this parameter.
+e: file:///D:/learnkotline/app/src/main/java/com/hello/lets/test/screen/ui/settings/SettingsScreen.kt:666:21 @Composable invocations can only happen from the context of a @Composable function
 
 FAILURE: Build failed with an exception.
 
@@ -35,5 +40,5 @@ Execution failed for task ':app:compileDebugKotlin'.
 > Run with --scan to get full insights.
 > Get more help at https://help.gradle.org.
 
-BUILD FAILED in 6s
+BUILD FAILED in 5s
 17 actionable tasks: 1 executed, 16 up-to-date

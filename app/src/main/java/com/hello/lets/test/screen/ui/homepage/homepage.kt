@@ -66,7 +66,8 @@ import java.util.Locale
 fun Homepage(
     viewModel: DashboardViewModel = viewModel(),
     onTransactionClick: (Long) -> Unit = {},
-    onViewAllClick: () -> Unit = {}
+    onViewAllClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -108,11 +109,16 @@ fun Homepage(
         ) {
             // Header Row
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onProfileClick() },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Image(
                         painter = painterResource(id = R.drawable.profile_image),
                         contentDescription = "Profile Picture",
@@ -139,7 +145,7 @@ fun Homepage(
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            text = "Satish",
+                            text = uiState.userName.ifBlank { "User" },
                             fontSize = 22.sp,
                             fontFamily = LiterataFontFamily,
                             fontWeight = FontWeight.Bold,

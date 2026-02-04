@@ -5,17 +5,22 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.hello.lets.test.data.dao.BankAccountDao
 import com.hello.lets.test.data.dao.CategoryDao
 import com.hello.lets.test.data.dao.ExcludedSenderDao
 import com.hello.lets.test.data.dao.ParsingRuleDao
 import com.hello.lets.test.data.dao.SavingsGoalDao
 import com.hello.lets.test.data.dao.TransactionDao
+import com.hello.lets.test.data.dao.UserProfileDao
+import com.hello.lets.test.data.entity.BankAccount
 import com.hello.lets.test.data.entity.Category
 import com.hello.lets.test.data.entity.ExcludedSender
 import com.hello.lets.test.data.entity.ParsingRule
 import com.hello.lets.test.data.entity.SavingsGoal
 import com.hello.lets.test.data.entity.Transaction
+import com.hello.lets.test.data.entity.UserProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,9 +34,11 @@ import kotlinx.coroutines.launch
         Category::class,
         ParsingRule::class,
         ExcludedSender::class,
-        SavingsGoal::class
+        SavingsGoal::class,
+        BankAccount::class,
+        UserProfile::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -42,10 +49,53 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun parsingRuleDao(): ParsingRuleDao
     abstract fun excludedSenderDao(): ExcludedSenderDao
     abstract fun savingsGoalDao(): SavingsGoalDao
+    abstract fun bankAccountDao(): BankAccountDao
+    abstract fun userProfileDao(): UserProfileDao
     
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
+        
+        // Migration from version 1 to 2: Add bank_accounts and user_profile tables
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Create bank_accounts table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS bank_accounts (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        bankName TEXT NOT NULL,
+                        bankCode TEXT NOT NULL,
+                        accountNumber TEXT,
+                        currentBalance REAL NOT NULL DEFAULT 0.0,
+                        lastUpdated INTEGER NOT NULL,
+                        isDefault INTEGER NOT NULL DEFAULT 0,
+                        colorHex TEXT NOT NULL DEFAULT '#1A73E8',
+                        iconName TEXT,
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                
+                // Create unique index on bankCode
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_bank_accounts_bankCode ON bank_accounts (bankCode)")
+                
+                // Create user_profile table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS user_profile (
+                        id INTEGER PRIMARY KEY NOT NULL,
+                        name TEXT NOT NULL,
+                        phoneNumber TEXT,
+                        email TEXT,
+                        profilePicturePath TEXT,
+                        onboardingComplete INTEGER NOT NULL DEFAULT 0,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                
+                // Add bankAccountId column to transactions table
+                db.execSQL("ALTER TABLE transactions ADD COLUMN bankAccountId INTEGER")
+            }
+        }
         
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -54,6 +104,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "payment_tracker_db"
                 )
+                    .addMigrations(MIGRATION_1_2)
+                    .fallbackToDestructiveMigration()
                     .addCallback(DatabaseCallback())
                     .build()
                 INSTANCE = instance

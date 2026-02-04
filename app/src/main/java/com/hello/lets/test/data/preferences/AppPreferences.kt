@@ -45,11 +45,11 @@ class AppPreferences(context: Context) {
     
     // Lock Settings
     var isAppLockEnabled: Boolean
-        get() = prefs.getBoolean(KEY_APP_LOCK_ENABLED, true) // Default: enabled
+        get() = prefs.getBoolean(KEY_APP_LOCK_ENABLED, false) // Default: disabled
         set(value) = prefs.edit { putBoolean(KEY_APP_LOCK_ENABLED, value) }
     
     var isBiometricEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, true) // Default: enabled
+        get() = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false) // Default: disabled
         set(value) = prefs.edit { putBoolean(KEY_BIOMETRIC_ENABLED, value) }
     
     // Appearance Settings

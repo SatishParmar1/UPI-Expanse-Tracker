@@ -705,58 +705,195 @@ data class CategorySpending(
 // ViewModel
 class AnalyticsViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
+    private val transactionDao = db.transactionDao()
+    private val categoryDao = db.categoryDao()
     
     private val _uiState = MutableStateFlow(AnalyticsUiState())
     val uiState: StateFlow<AnalyticsUiState> = _uiState.asStateFlow()
     
+    // Current month date range
+    private val currentMonthStart: Long
+    private val currentMonthEnd: Long
+    
     init {
+        val calendar = Calendar.getInstance()
+        
+        // Start of current month
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        currentMonthStart = calendar.timeInMillis
+        
+        // End of current month
+        calendar.add(Calendar.MONTH, 1)
+        calendar.add(Calendar.MILLISECOND, -1)
+        currentMonthEnd = calendar.timeInMillis
+        
         loadAnalyticsData()
     }
     
     private fun loadAnalyticsData() {
         viewModelScope.launch {
-            // Sample data - replace with actual database queries
-            _uiState.value = AnalyticsUiState(
-                totalSpent = 32450.0,
-                budgetAmount = 45000.0,
-                remainingBudget = 12550.0,
-                dailyAverage = 1080.0,
-                selectedPeriod = "Week",
-                dateRange = "Oct 23 - Oct 29",
-                weeklySpending = listOf(
-                    DailySpending("M", 1200.0),
-                    DailySpending("T", 800.0),
-                    DailySpending("W", 2100.0),
-                    DailySpending("T", 3200.0, isSelected = true),
-                    DailySpending("F", 1500.0),
-                    DailySpending("S", 900.0),
-                    DailySpending("S", 600.0)
-                ),
-                topMerchants = listOf(
-                    MerchantSpending("Swiggy", 4250.0, 15, 80, Color(0xFFEF4444)),
-                    MerchantSpending("Uber", 2840.0, 8, 55, Color(0xFFFF9800)),
-                    MerchantSpending("Amazon", 1950.0, 3, 40, Color(0xFF4CAF50))
-                ),
-                categoryBreakdown = listOf(
-                    CategorySpending("Food & Dining", 5240.0, 12, 42, Color(0xFFFF5722), Icons.Rounded.Restaurant),
-                    CategorySpending("Shopping", 3450.0, 5, 28, Color(0xFF2196F3), Icons.Rounded.ShoppingBag),
-                    CategorySpending("Transport", 1890.0, 8, 15, Color(0xFF9C27B0), Icons.Rounded.DirectionsCar),
-                    CategorySpending("Entertainment", 850.0, 2, 7, Color(0xFFE91E63), Icons.Rounded.Movie)
+            // Get total spent this month
+            transactionDao.getTotalSpent(currentMonthStart, currentMonthEnd).collect { spent ->
+                val budget = _uiState.value.budgetAmount
+                val remaining = budget - spent
+                val daysInMonth = Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH)
+                val currentDay = Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
+                val dailyAvg = if (currentDay > 0) spent / currentDay else 0.0
+                
+                _uiState.value = _uiState.value.copy(
+                    totalSpent = spent,
+                    remainingBudget = remaining,
+                    dailyAverage = dailyAvg
                 )
-            )
+            }
         }
+        
+        // Load all transactions for analysis
+        viewModelScope.launch {
+            transactionDao.getTransactionsByDateRange(currentMonthStart, currentMonthEnd).collect { transactions ->
+                // Calculate weekly spending
+                val weeklySpending = calculateWeeklySpending(transactions)
+                
+                // Calculate top merchants
+                val topMerchants = calculateTopMerchants(transactions)
+                
+                // Calculate category breakdown
+                val categoryBreakdown = calculateCategoryBreakdown(transactions)
+                
+                // Date range string
+                val dateFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
+                val weekStart = Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                }
+                val weekEnd = Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
+                }
+                val dateRange = "${dateFormat.format(weekStart.time)} - ${dateFormat.format(weekEnd.time)}"
+                
+                _uiState.value = _uiState.value.copy(
+                    weeklySpending = weeklySpending,
+                    topMerchants = topMerchants,
+                    categoryBreakdown = categoryBreakdown,
+                    dateRange = dateRange
+                )
+            }
+        }
+    }
+    
+    private fun calculateWeeklySpending(transactions: List<com.hello.lets.test.data.entity.Transaction>): List<DailySpending> {
+        val calendar = Calendar.getInstance()
+        val today = calendar.get(Calendar.DAY_OF_WEEK)
+        
+        // Get start of this week (Monday)
+        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        
+        val dayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
+        val weeklyData = mutableListOf<DailySpending>()
+        
+        for (i in 0..6) {
+            val dayStart = calendar.timeInMillis
+            calendar.add(Calendar.DAY_OF_MONTH, 1)
+            val dayEnd = calendar.timeInMillis - 1
+            
+            val daySpent = transactions
+                .filter { it.transactionType == com.hello.lets.test.data.entity.TransactionType.DEBIT }
+                .filter { it.transactionDate in dayStart..dayEnd }
+                .sumOf { it.amount }
+            
+            val dayOfWeek = Calendar.getInstance().apply { timeInMillis = dayStart }.get(Calendar.DAY_OF_WEEK)
+            val isToday = dayOfWeek == today
+            
+            weeklyData.add(DailySpending(dayLabels[i], daySpent, isToday))
+        }
+        
+        return weeklyData
+    }
+    
+    private fun calculateTopMerchants(transactions: List<com.hello.lets.test.data.entity.Transaction>): List<MerchantSpending> {
+        val debitTransactions = transactions.filter { 
+            it.transactionType == com.hello.lets.test.data.entity.TransactionType.DEBIT 
+        }
+        
+        val merchantGroups = debitTransactions.groupBy { it.merchant }
+        val totalSpent = debitTransactions.sumOf { it.amount }
+        
+        val colors = listOf(
+            Color(0xFFEF4444), Color(0xFFFF9800), Color(0xFF4CAF50),
+            Color(0xFF2196F3), Color(0xFF9C27B0)
+        )
+        
+        return merchantGroups
+            .map { (merchant, txns) ->
+                val amount = txns.sumOf { it.amount }
+                val percentage = if (totalSpent > 0) ((amount / totalSpent) * 100).toInt() else 0
+                MerchantSpending(
+                    name = merchant,
+                    amount = amount,
+                    transactionCount = txns.size,
+                    percentage = percentage,
+                    color = colors[merchantGroups.keys.indexOf(merchant) % colors.size]
+                )
+            }
+            .sortedByDescending { it.amount }
+            .take(5)
+    }
+    
+    private fun calculateCategoryBreakdown(transactions: List<com.hello.lets.test.data.entity.Transaction>): List<CategorySpending> {
+        val debitTransactions = transactions.filter { 
+            it.transactionType == com.hello.lets.test.data.entity.TransactionType.DEBIT 
+        }
+        
+        val totalSpent = debitTransactions.sumOf { it.amount }
+        
+        // Group by category - using categoryId, null means uncategorized
+        val categoryGroups = debitTransactions.groupBy { it.categoryId ?: -1L }
+        
+        val categoryData = listOf(
+            Triple("Food & Dining", Color(0xFFFF5722), Icons.Rounded.Restaurant),
+            Triple("Shopping", Color(0xFF2196F3), Icons.Rounded.ShoppingBag),
+            Triple("Transport", Color(0xFF9C27B0), Icons.Rounded.DirectionsCar),
+            Triple("Entertainment", Color(0xFFE91E63), Icons.Rounded.Movie),
+            Triple("Groceries", Color(0xFF4CAF50), Icons.Rounded.ShoppingCart),
+            Triple("Uncategorized", Color(0xFF607D8B), Icons.Rounded.Category)
+        )
+        
+        return categoryGroups
+            .map { (categoryId, txns) ->
+                val amount = txns.sumOf { it.amount }
+                val percentage = if (totalSpent > 0) ((amount / totalSpent) * 100).toInt() else 0
+                val index = if (categoryId == -1L) 5 else ((categoryId - 1) % 5).toInt()
+                val (name, color, icon) = categoryData.getOrElse(index) { categoryData.last() }
+                
+                CategorySpending(
+                    name = name,
+                    amount = amount,
+                    transactionCount = txns.size,
+                    percentage = percentage,
+                    color = color,
+                    icon = icon
+                )
+            }
+            .sortedByDescending { it.amount }
     }
     
     fun setSelectedPeriod(period: String) {
         _uiState.value = _uiState.value.copy(selectedPeriod = period)
         // Reload data based on period
+        loadAnalyticsData()
     }
 }
 
 data class AnalyticsUiState(
     val totalSpent: Double = 0.0,
-    val budgetAmount: Double = 45000.0,
-    val remainingBudget: Double = 0.0,
+    val budgetAmount: Double = 50000.0,
+    val remainingBudget: Double = 50000.0,
     val dailyAverage: Double = 0.0,
     val selectedPeriod: String = "Week",
     val dateRange: String = "",
@@ -764,3 +901,4 @@ data class AnalyticsUiState(
     val topMerchants: List<MerchantSpending> = emptyList(),
     val categoryBreakdown: List<CategorySpending> = emptyList()
 )
+

@@ -38,6 +38,12 @@ interface TransactionDao {
     fun getRecentTransactions(limit: Int): Flow<List<Transaction>>
     
     /**
+     * Get a single transaction by ID.
+     */
+    @Query("SELECT * FROM transactions WHERE id = :id")
+    suspend fun getById(id: Long): Transaction?
+    
+    /**
      * Get total amount spent (debited) in a date range.
      */
     @Query("""
@@ -84,12 +90,6 @@ interface TransactionDao {
      */
     @Query("SELECT * FROM transactions WHERE rawSmsContent = :rawSms LIMIT 1")
     suspend fun findByRawSms(rawSms: String): Transaction?
-    
-    /**
-     * Get transaction by ID.
-     */
-    @Query("SELECT * FROM transactions WHERE id = :id")
-    suspend fun getById(id: Long): Transaction?
     
     /**
      * Insert a new transaction.

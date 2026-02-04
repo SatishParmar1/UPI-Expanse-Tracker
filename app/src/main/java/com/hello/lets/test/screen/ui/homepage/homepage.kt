@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -62,7 +63,11 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun Homepage(viewModel: DashboardViewModel = viewModel()) {
+fun Homepage(
+    viewModel: DashboardViewModel = viewModel(),
+    onTransactionClick: (Long) -> Unit = {},
+    onViewAllClick: () -> Unit = {}
+) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val syncState by viewModel.syncState.collectAsState()
@@ -183,7 +188,9 @@ fun Homepage(viewModel: DashboardViewModel = viewModel()) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     RecentActivitySection(
                         transactions = uiState.recentTransactions,
-                        isLoading = uiState.isLoading
+                        isLoading = uiState.isLoading,
+                        onTransactionClick = onTransactionClick,
+                        onViewAllClick = onViewAllClick
                     )
                 }
             }
@@ -483,7 +490,9 @@ fun TotalSpentCard(
 @Composable
 fun RecentActivitySection(
     transactions: List<Transaction>,
-    isLoading: Boolean
+    isLoading: Boolean,
+    onTransactionClick: (Long) -> Unit = {},
+    onViewAllClick: () -> Unit = {}
 ) {
     val primaryText = MaterialTheme.colorScheme.onSurface
     val secondaryText = MaterialTheme.colorScheme.onSurfaceVariant
@@ -507,7 +516,7 @@ fun RecentActivitySection(
                 fontWeight = FontWeight.Bold,
                 color = primaryText
             )
-            TextButton(onClick = { /* TODO: Navigate to all transactions */ }) {
+            TextButton(onClick = onViewAllClick) {
                 Text(
                     text = "View All",
                     fontSize = 12.sp,
@@ -566,7 +575,8 @@ fun RecentActivitySection(
                         subtitleColor = secondaryText,
                         widgetBackground = widgetBackground,
                         positiveColor = positiveColor,
-                        negativeColor = negativeColor
+                        negativeColor = negativeColor,
+                        onClick = { onTransactionClick(transaction.id) }
                     )
                 }
             }
@@ -582,7 +592,8 @@ fun TransactionItem(
     subtitleColor: Color,
     widgetBackground: Color,
     positiveColor: Color,
-    negativeColor: Color
+    negativeColor: Color,
+    onClick: () -> Unit = {}
 ) {
     val isCredit = transaction.transactionType == TransactionType.CREDIT
     val amountColor = if (isCredit) positiveColor else negativeColor
@@ -594,6 +605,7 @@ fun TransactionItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(widgetBackground)
+            .clickable { onClick() }
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

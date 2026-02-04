@@ -1,0 +1,556 @@
+{
+  "project": {
+    "name": "UPI Expense Tracker",
+    "package": "com.hello.lets.test",
+    "description": "A privacy-focused Android app that automatically tracks UPI transactions by parsing SMS messages locally on device. No data is sent to any server.",
+    "version": "1.0.0",
+    "minSdk": 24,
+    "targetSdk": 34
+  },
+  "architecture": {
+    "pattern": "MVVM",
+    "components": {
+      "ui": "Jetpack Compose",
+      "navigation": "Jetpack Navigation Compose",
+      "database": "Room Persistence Library",
+      "stateManagement": "Kotlin Flow + StateFlow",
+      "viewModel": "AndroidViewModel"
+    }
+  },
+  "pages": {
+    "homepage": {
+      "path": "screen/ui/homepage/homepage.kt",
+      "viewModel": "DashboardViewModel",
+      "features": [
+        "Total spending display for current month",
+        "Budget progress donut chart",
+        "Recent transactions list (last 5)",
+        "Live sync status indicator",
+        "SMS permission handling",
+        "Auto-sync on permission grant",
+        "View all transactions navigation",
+        "View analytics navigation"
+      ]
+    },
+    "analytics": {
+      "path": "screen/ui/analytics/AnalyticsScreen.kt",
+      "viewModel": "AnalyticsViewModel",
+      "features": [
+        "Budget performance circle card",
+        "Weekly spending bar chart",
+        "Monthly spending trends",
+        "Top merchants breakdown",
+        "Category-wise spending breakdown",
+        "Period selection (Week/Month)",
+        "Daily average calculation"
+      ]
+    },
+    "goals": {
+      "path": "screen/ui/goals/GoalsScreen.kt",
+      "viewModel": "GoalsViewModel",
+      "features": [
+        "Total savings progress card",
+        "Individual goal cards with progress",
+        "Smart Save toggle per goal",
+        "Add new goal functionality",
+        "Goal priority levels (High/Medium/Low)",
+        "Custom icons and colors per goal"
+      ]
+    },
+    "settings": {
+      "path": "screen/ui/settings/SettingsScreen.kt",
+      "viewModel": "SettingsViewModel",
+      "features": [
+        "App Lock toggle",
+        "Biometric authentication toggle",
+        "Local backup options",
+        "SMS parsing keyword rules navigation",
+        "Excluded senders management",
+        "Theme selection",
+        "Accent color picker",
+        "Export data functionality",
+        "Delete all data option"
+      ]
+    },
+    "keywordRules": {
+      "path": "screen/ui/settings/KeywordRulesScreen.kt",
+      "viewModel": "KeywordRulesViewModel",
+      "features": [
+        "Test SMS parsing configuration",
+        "Add custom keyword rules",
+        "Keyword to category mapping",
+        "Sample rules auto-generation",
+        "Rule deletion",
+        "Icon selection for categories"
+      ]
+    },
+    "transactionDetails": {
+      "path": "screen/ui/transaction/TransactionDetailsScreen.kt",
+      "viewModel": "TransactionDetailsViewModel",
+      "features": [
+        "Full transaction display",
+        "Raw SMS content view",
+        "Editable merchant name",
+        "Category dropdown selection",
+        "Editable notes/description",
+        "Date and time display",
+        "Technical metadata (Reference ID, Source, Account)",
+        "Save changes functionality",
+        "Delete transaction with confirmation"
+      ],
+      "status": "IMPLEMENTED"
+    },
+    "addGoal": {
+      "path": "screen/ui/goals/AddGoalScreen.kt",
+      "features": [
+        "Goal name input",
+        "Target amount input",
+        "Description input",
+        "Priority selection",
+        "Icon picker",
+        "Color picker",
+        "Smart Save toggle"
+      ],
+      "status": "IMPLEMENTED"
+    },
+    "allTransactions": {
+      "path": "screen/ui/transaction/AllTransactionsScreen.kt",
+      "features": [
+        "Full transaction list",
+        "Filter by type (Debit/Credit)",
+        "Date range picker",
+        "Category filter",
+        "Search by merchant",
+        "Pagination/infinite scroll"
+      ],
+      "status": "IMPLEMENTED"
+    },
+    "budget": {
+      "path": "screen/ui/budget/BudgetScreen.kt",
+      "features": [
+        "Monthly budget setting",
+        "Budget vs actual chart",
+        "Category-wise budgets",
+        "Budget history"
+      ],
+      "status": "PLANNED"
+    }
+  },
+  "database": {
+    "name": "AppDatabase",
+    "path": "data/AppDatabase.kt",
+    "version": 1,
+    "entities": {
+      "Transaction": {
+        "tableName": "transactions",
+        "path": "data/entity/Transaction.kt",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Long",
+            "primaryKey": true,
+            "autoGenerate": true
+          },
+          {
+            "name": "amount",
+            "type": "Double",
+            "description": "Transaction amount in INR"
+          },
+          {
+            "name": "merchant",
+            "type": "String",
+            "description": "Merchant/Vendor name"
+          },
+          {
+            "name": "categoryId",
+            "type": "Long?",
+            "foreignKey": "Category"
+          },
+          {
+            "name": "transactionType",
+            "type": "TransactionType",
+            "enum": [
+              "DEBIT",
+              "CREDIT"
+            ]
+          },
+          {
+            "name": "transactionDate",
+            "type": "Long",
+            "description": "Timestamp in milliseconds"
+          },
+          {
+            "name": "rawSmsContent",
+            "type": "String",
+            "description": "Original SMS text"
+          },
+          {
+            "name": "smsAddress",
+            "type": "String",
+            "description": "SMS sender address"
+          },
+          {
+            "name": "referenceId",
+            "type": "String?",
+            "description": "UPI/Bank reference number"
+          },
+          {
+            "name": "accountNumber",
+            "type": "String?",
+            "description": "Last 4 digits of account"
+          },
+          {
+            "name": "balanceAfter",
+            "type": "Double?",
+            "description": "Balance after transaction"
+          },
+          {
+            "name": "notes",
+            "type": "String?",
+            "description": "User notes"
+          }
+        ],
+        "indices": [
+          "transactionDate",
+          "categoryId",
+          "merchant"
+        ]
+      },
+      "SavingsGoal": {
+        "tableName": "savings_goals",
+        "path": "data/entity/SavingsGoal.kt",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Long",
+            "primaryKey": true,
+            "autoGenerate": true
+          },
+          {
+            "name": "name",
+            "type": "String"
+          },
+          {
+            "name": "description",
+            "type": "String?"
+          },
+          {
+            "name": "targetAmount",
+            "type": "Double"
+          },
+          {
+            "name": "savedAmount",
+            "type": "Double",
+            "default": 0.0
+          },
+          {
+            "name": "priority",
+            "type": "GoalPriority",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ]
+          },
+          {
+            "name": "iconName",
+            "type": "String?"
+          },
+          {
+            "name": "colorHex",
+            "type": "String?"
+          },
+          {
+            "name": "smartSaveEnabled",
+            "type": "Boolean",
+            "default": false
+          },
+          {
+            "name": "createdAt",
+            "type": "Long"
+          },
+          {
+            "name": "targetDate",
+            "type": "Long?"
+          }
+        ],
+        "computedProperties": [
+          "progressPercentage",
+          "isCompleted"
+        ]
+      },
+      "Category": {
+        "tableName": "categories",
+        "path": "data/entity/Category.kt",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Long",
+            "primaryKey": true,
+            "autoGenerate": true
+          },
+          {
+            "name": "name",
+            "type": "String"
+          },
+          {
+            "name": "iconName",
+            "type": "String?"
+          },
+          {
+            "name": "colorHex",
+            "type": "String?"
+          },
+          {
+            "name": "isDefault",
+            "type": "Boolean",
+            "default": false
+          }
+        ]
+      },
+      "ParsingRule": {
+        "tableName": "parsing_rules",
+        "path": "data/entity/ParsingRule.kt",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Long",
+            "primaryKey": true,
+            "autoGenerate": true
+          },
+          {
+            "name": "keyword",
+            "type": "String",
+            "description": "Keyword to match in SMS"
+          },
+          {
+            "name": "pattern",
+            "type": "String",
+            "description": "Regex pattern for matching"
+          },
+          {
+            "name": "extractedCategory",
+            "type": "String?",
+            "description": "Category name to assign"
+          },
+          {
+            "name": "categoryId",
+            "type": "Long?",
+            "foreignKey": "Category"
+          },
+          {
+            "name": "isActive",
+            "type": "Boolean",
+            "default": true
+          },
+          {
+            "name": "priority",
+            "type": "Int",
+            "default": 0
+          }
+        ]
+      },
+      "ExcludedSender": {
+        "tableName": "excluded_senders",
+        "path": "data/entity/ExcludedSender.kt",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Long",
+            "primaryKey": true,
+            "autoGenerate": true
+          },
+          {
+            "name": "address",
+            "type": "String",
+            "description": "SMS sender to exclude"
+          },
+          {
+            "name": "reason",
+            "type": "String?"
+          }
+        ]
+      }
+    },
+    "daos": {
+      "TransactionDao": {
+        "path": "data/dao/TransactionDao.kt",
+        "operations": [
+          "getAllTransactions",
+          "getTransactionsByDateRange",
+          "getRecentTransactions",
+          "getById",
+          "getTotalSpent",
+          "getTotalIncome",
+          "getSpendingByCategory",
+          "getCount",
+          "findByRawSms",
+          "insert",
+          "insertAll",
+          "update",
+          "delete",
+          "deleteAll"
+        ]
+      },
+      "SavingsGoalDao": {
+        "path": "data/dao/SavingsGoalDao.kt",
+        "operations": [
+          "getAllGoals",
+          "getTotalSaved",
+          "getTotalTarget",
+          "getSmartSaveGoals",
+          "getById",
+          "getCount",
+          "insert",
+          "update",
+          "delete"
+        ]
+      },
+      "CategoryDao": {
+        "path": "data/dao/CategoryDao.kt",
+        "operations": [
+          "getAllCategories",
+          "getById",
+          "getByName",
+          "insert",
+          "update",
+          "delete"
+        ]
+      },
+      "ParsingRuleDao": {
+        "path": "data/dao/ParsingRuleDao.kt",
+        "operations": [
+          "getAllRules",
+          "getActiveRules",
+          "getActiveRulesList",
+          "getActiveCount",
+          "insert",
+          "update",
+          "delete"
+        ]
+      },
+      "ExcludedSenderDao": {
+        "path": "data/dao/ExcludedSenderDao.kt",
+        "operations": [
+          "getAllExcludedSenders",
+          "getExcludedAddresses",
+          "isExcluded",
+          "getCount",
+          "insert",
+          "delete"
+        ]
+      }
+    }
+  },
+  "smsProcessing": {
+    "smsReader": {
+      "path": "sms/SmsReader.kt",
+      "description": "Reads SMS messages from device inbox using ContentResolver",
+      "features": [
+        "Reads SMS with transaction keywords",
+        "Filters by sender pattern",
+        "Returns raw SMS content with metadata"
+      ]
+    },
+    "transactionParser": {
+      "path": "sms/TransactionParser.kt",
+      "description": "Parses SMS text to extract transaction details",
+      "extractedFields": [
+        "amount",
+        "merchant",
+        "transactionType",
+        "referenceId",
+        "accountNumber",
+        "balance"
+      ],
+      "supportedPatterns": [
+        "UPI transaction messages",
+        "Bank debit/credit messages",
+        "Wallet transaction messages"
+      ]
+    }
+  },
+  "repository": {
+    "TransactionRepository": {
+      "path": "data/repository/TransactionRepository.kt",
+      "description": "Single source of truth for all database operations",
+      "manages": [
+        "Transaction",
+        "Category",
+        "ParsingRule",
+        "ExcludedSender"
+      ]
+    }
+  },
+  "navigation": {
+    "path": "screen/ui/deshboard/Deshboard.kt",
+    "type": "Bottom Navigation",
+    "destinations": [
+      {
+        "route": "homepage",
+        "label": "Dashboard",
+        "icon": "Home"
+      },
+      {
+        "route": "goals",
+        "label": "Goals",
+        "icon": "Savings"
+      },
+      {
+        "route": "analytics",
+        "label": "Analytics",
+        "icon": "TrendingUp"
+      },
+      {
+        "route": "settings",
+        "label": "Settings",
+        "icon": "Settings"
+      }
+    ],
+    "subRoutes": [
+      {
+        "route": "keyword_rules",
+        "parent": "settings"
+      },
+      {
+        "route": "transaction_details/{id}",
+        "parent": "homepage",
+        "status": "NEW"
+      },
+      {
+        "route": "add_goal",
+        "parent": "goals",
+        "status": "PLANNED"
+      },
+      {
+        "route": "all_transactions",
+        "parent": "homepage",
+        "status": "PLANNED"
+      },
+      {
+        "route": "budget",
+        "parent": "homepage",
+        "status": "PLANNED"
+      }
+    ]
+  },
+  "theming": {
+    "path": "ui/theme/",
+    "customFont": "LiterataFontFamily",
+    "primaryColor": "#4CAF50",
+    "supportsDarkMode": true
+  },
+  "permissions": [
+    {
+      "name": "READ_SMS",
+      "purpose": "Read transaction SMS messages for parsing"
+    }
+  ],
+  "privacyFeatures": [
+    "All data stored locally on device",
+    "No network requests for transaction data",
+    "No cloud sync - fully offline",
+    "Optional app lock",
+    "Optional biometric authentication"
+  ]
+}

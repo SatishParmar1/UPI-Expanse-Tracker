@@ -28,10 +28,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.hello.lets.test.screen.ui.analytics.AnalyticsScreen
+import com.hello.lets.test.screen.ui.goals.AddGoalScreen
 import com.hello.lets.test.screen.ui.goals.GoalsScreen
 import com.hello.lets.test.screen.ui.homepage.Homepage
 import com.hello.lets.test.screen.ui.settings.KeywordRulesScreen
 import com.hello.lets.test.screen.ui.settings.SettingsScreen
+import com.hello.lets.test.screen.ui.transaction.AllTransactionsScreen
+import com.hello.lets.test.screen.ui.transaction.TransactionDetailsScreen
 
 /**
  * Navigation destinations for the bottom navigation bar.
@@ -63,10 +66,21 @@ fun AppNavHost(
         modifier = modifier
     ) {
         composable(Destination.HOME.route) {
-            Homepage()
+            Homepage(
+                onTransactionClick = { transactionId ->
+                    navController.navigate("transaction_details/$transactionId")
+                },
+                onViewAllClick = {
+                    navController.navigate("all_transactions")
+                }
+            )
         }
         composable(Destination.GOALS.route) {
-            GoalsScreen()
+            GoalsScreen(
+                onAddGoalClick = {
+                    navController.navigate("add_goal")
+                }
+            )
         }
         composable(Destination.ANALYTICS.route) {
             AnalyticsScreen()
@@ -82,6 +96,38 @@ fun AppNavHost(
         composable("keyword_rules") {
             KeywordRulesScreen(
                 onBackClick = { navController.popBackStack() }
+            )
+        }
+        // Transaction Details screen
+        composable(
+            route = "transaction_details/{transactionId}",
+            arguments = listOf(
+                androidx.navigation.navArgument("transactionId") { 
+                    type = androidx.navigation.NavType.LongType 
+                }
+            )
+        ) { backStackEntry ->
+            val transactionId = backStackEntry.arguments?.getLong("transactionId") ?: 0L
+            TransactionDetailsScreen(
+                transactionId = transactionId,
+                onBackClick = { navController.popBackStack() },
+                onSaveSuccess = { navController.popBackStack() }
+            )
+        }
+        // Add Goal screen
+        composable("add_goal") {
+            AddGoalScreen(
+                onBackClick = { navController.popBackStack() },
+                onGoalCreated = { navController.popBackStack() }
+            )
+        }
+        // All Transactions screen
+        composable("all_transactions") {
+            AllTransactionsScreen(
+                onBackClick = { navController.popBackStack() },
+                onTransactionClick = { transactionId ->
+                    navController.navigate("transaction_details/$transactionId")
+                }
             )
         }
     }

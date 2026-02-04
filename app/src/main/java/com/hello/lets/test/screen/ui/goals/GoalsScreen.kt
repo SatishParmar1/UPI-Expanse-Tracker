@@ -25,12 +25,16 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hello.lets.test.data.AppDatabase
 import com.hello.lets.test.data.entity.GoalPriority
 import com.hello.lets.test.data.entity.SavingsGoal
 import com.hello.lets.test.ui.theme.LiterataFontFamily
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * Goals screen showing savings goals with progress tracking.
@@ -39,7 +43,10 @@ import kotlinx.coroutines.flow.asStateFlow
 @Preview()
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GoalsScreen(viewModel: GoalsViewModel = viewModel()) {
+fun GoalsScreen(
+    viewModel: GoalsViewModel = viewModel(),
+    onAddGoalClick: () -> Unit = {}
+) {
     val uiState by viewModel.uiState.collectAsState()
     val goals by viewModel.goals.collectAsState()
     
@@ -75,7 +82,7 @@ fun GoalsScreen(viewModel: GoalsViewModel = viewModel()) {
                 },
                 actions = {
                     IconButton(
-                        onClick = { viewModel.showAddGoalDialog() }
+                        onClick = onAddGoalClick
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Add,
@@ -91,7 +98,7 @@ fun GoalsScreen(viewModel: GoalsViewModel = viewModel()) {
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { viewModel.showAddGoalDialog() },
+                onClick = onAddGoalClick,
                 containerColor = surfaceColor,
                 contentColor = textPrimary
             ) {
@@ -424,92 +431,79 @@ fun formatAmount(amount: Double): String {
  * ViewModel for Goals screen.
  */
 class GoalsViewModel(application: Application) : AndroidViewModel(application) {
+    private val db = AppDatabase.getDatabase(application)
+    private val savingsGoalDao = db.savingsGoalDao()
     
-    // Sample data for now - will be replaced with database
-    private val _goals = MutableStateFlow(
-        listOf(
-            SavingsGoal(
-                id = 1,
-                name = "Emergency Fund",
-                description = "Safety net for rainy days",
-                targetAmount = 150000.0,
-                savedAmount = 120000.0,
-                priority = GoalPriority.HIGH,
-                iconName = "shield",
-                colorHex = "#2196F3",
-                smartSaveEnabled = false
-            ),
-            SavingsGoal(
-                id = 2,
-                name = "Europe Trip",
-                description = "Summer 2024",
-                targetAmount = 180000.0,
-                savedAmount = 45000.0,
-                priority = GoalPriority.MEDIUM,
-                iconName = "flight",
-                colorHex = "#FF9800",
-                smartSaveEnabled = false
-            ),
-            SavingsGoal(
-                id = 3,
-                name = "MacBook Pro",
-                description = "Work upgrade",
-                targetAmount = 200000.0,
-                savedAmount = 80000.0,
-                priority = GoalPriority.LOW,
-                iconName = "laptop",
-                colorHex = "#E91E63",
-                smartSaveEnabled = true
-            )
+    // Real data from database
+    val goals: StateFlow<List<SavingsGoal>> = savingsGoalDao.getAllGoals()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
         )
-    )
-    val goals: StateFlow<List<SavingsGoal>> = _goals.asStateFlow()
     
     private val _uiState = MutableStateFlow(GoalsUiState())
     val uiState: StateFlow<GoalsUiState> = _uiState.asStateFlow()
     
     init {
-        updateTotals()
+        loadTotals()
     }
     
-    private fun updateTotals() {
-        val totalSaved = _goals.value.sumOf { it.savedAmount }
-        val totalTarget = _goals.value.sumOf { it.targetAmount }
-        val progress = if (totalTarget > 0) ((totalSaved / totalTarget) * 100).toFloat() else 0f
+    private fun loadTotals() {
+        viewModelScope.launch {
+            savingsGoalDao.getTotalSaved().collect { totalSaved ->
+                _uiState.value = _uiState.value.copy(totalSaved = totalSaved)
+                updateProgress()
+            }
+        }
         
-        _uiState.value = GoalsUiState(
-            totalSaved = totalSaved,
-            totalTarget = totalTarget,
-            overallProgress = progress
-        )
+        viewModelScope.launch {
+            savingsGoalDao.getTotalTarget().collect { totalTarget ->
+                _uiState.value = _uiState.value.copy(totalTarget = totalTarget)
+                updateProgress()
+            }
+        }
+    }
+    
+    private fun updateProgress() {
+        val state = _uiState.value
+        val progress = if (state.totalTarget > 0) {
+            ((state.totalSaved / state.totalTarget) * 100).toFloat()
+        } else 0f
+        _uiState.value = state.copy(overallProgress = progress)
     }
     
     fun toggleSmartSave(goal: SavingsGoal) {
-        _goals.value = _goals.value.map {
-            if (it.id == goal.id) it.copy(smartSaveEnabled = !it.smartSaveEnabled)
-            else it
+        viewModelScope.launch {
+            savingsGoalDao.update(goal.copy(smartSaveEnabled = !goal.smartSaveEnabled))
         }
     }
     
     fun showAddGoalDialog() {
-        // TODO: Implement add goal dialog
+        _uiState.value = _uiState.value.copy(showAddDialog = true)
+    }
+    
+    fun hideAddGoalDialog() {
+        _uiState.value = _uiState.value.copy(showAddDialog = false)
     }
     
     fun addGoal(goal: SavingsGoal) {
-        _goals.value = _goals.value + goal
-        updateTotals()
+        viewModelScope.launch {
+            savingsGoalDao.insert(goal)
+            hideAddGoalDialog()
+        }
     }
     
     fun updateGoal(goal: SavingsGoal) {
-        _goals.value = _goals.value.map {
-            if (it.id == goal.id) goal else it
+        viewModelScope.launch {
+            savingsGoalDao.update(goal)
         }
-        updateTotals()
     }
     
     fun deleteGoal(goal: SavingsGoal) {
-        _goals.value = _goals.value.filter { it.id != goal.id }
-        updateTotals()
+        viewModelScope.launch {
+            savingsGoalDao.delete(goal)
+        }
     }
 }
 

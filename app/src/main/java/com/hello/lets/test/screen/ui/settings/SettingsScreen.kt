@@ -310,7 +310,7 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                     Text(
-                        text = "© 2024 FinanceTracker Inc.",
+                        text = "© 2024 Tractal Inc.",
                         fontSize = 12.sp,
                         fontFamily = LiterataFontFamily,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)

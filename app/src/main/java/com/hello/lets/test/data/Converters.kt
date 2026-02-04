@@ -1,8 +1,10 @@
 package com.hello.lets.test.data
 
 import androidx.room.TypeConverter
+import com.hello.lets.test.data.entity.BudgetType
 import com.hello.lets.test.data.entity.GoalPriority
 import com.hello.lets.test.data.entity.TransactionType
+
 
 /**
  * Type converters for Room database.
@@ -27,5 +29,15 @@ class Converters {
     @TypeConverter
     fun toGoalPriority(value: String): GoalPriority {
         return GoalPriority.valueOf(value)
+    }
+
+    @TypeConverter
+    fun fromBudgetType(type: BudgetType): String {
+        return type.name
+    }
+
+    @TypeConverter
+    fun toBudgetType(value: String): BudgetType {
+        return BudgetType.valueOf(value)
     }
 }

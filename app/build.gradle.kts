@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.hello.lets.test"
+    namespace = "com.tractal.finance.app"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.hello.lets.test"
+        applicationId = "com.tractal.finance.app"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

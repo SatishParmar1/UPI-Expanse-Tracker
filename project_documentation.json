@@ -1,6 +1,6 @@
 {
   "project": {
-    "name": "UPI Expense Tracker",
+    "name": "Tractal",
     "package": "com.hello.lets.test",
     "description": "A privacy-focused Android app that automatically tracks UPI transactions by parsing SMS messages locally on device. No data is sent to any server.",
     "version": "1.0.0",
@@ -69,7 +69,9 @@
         "Top merchants breakdown",
         "Category-wise spending breakdown",
         "Period selection (Week/Month)",
-        "Daily average calculation"
+        "Daily average calculation",
+        "Budget Management (Add/Delete)",
+        "Support for Weekly/Monthly Budgets"
       ]
     },
     "goals": {
@@ -456,6 +458,40 @@
             "type": "String?"
           }
         ]
+      },
+      "Budget": {
+        "tableName": "budgets",
+        "path": "data/entity/Budget.kt",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Long",
+            "primaryKey": true,
+            "autoGenerate": true
+          },
+          {
+            "name": "amount",
+            "type": "Double"
+          },
+          {
+            "name": "type",
+            "type": "BudgetType",
+            "enum": [
+              "WEEKLY",
+              "MONTHLY"
+            ]
+          },
+          {
+            "name": "categoryId",
+            "type": "Long?",
+            "foreignKey": "Category"
+          },
+          {
+            "name": "isActive",
+            "type": "Boolean",
+            "default": true
+          }
+        ]
       }
     },
     "daos": {
@@ -523,6 +559,17 @@
           "isExcluded",
           "getCount",
           "insert",
+          "delete"
+        ]
+      },
+      "BudgetDao": {
+        "path": "data/dao/BudgetDao.kt",
+        "operations": [
+          "getAllBudgets",
+          "getActiveBudgets",
+          "getActiveCount",
+          "insert",
+          "update",
           "delete"
         ]
       }

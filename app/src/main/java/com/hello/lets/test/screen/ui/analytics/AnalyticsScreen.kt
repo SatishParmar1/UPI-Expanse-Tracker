@@ -29,14 +29,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.hello.lets.test.data.AppDatabase
-import com.hello.lets.test.ui.theme.LiterataFontFamily
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
+import com.hello.lets.test.data.entity.Budget
+import com.hello.lets.test.data.entity.BudgetType
+import kotlinx.coroutines.flow.first
 
 /**
  * Analytics screen with spending insights and budget performance.
@@ -54,6 +49,18 @@ fun AnalyticsScreen(
     val backgroundColor = MaterialTheme.colorScheme.background
     val surfaceColor = MaterialTheme.colorScheme.surface
     
+    var showAddBudgetDialog by remember { mutableStateOf(false) }
+    
+    if (showAddBudgetDialog) {
+        AddBudgetDialog(
+            onDismiss = { showAddBudgetDialog = false },
+            onConfirm = { amount, type ->
+                viewModel.addBudget(amount, type)
+                showAddBudgetDialog = false
+            }
+        )
+    }
+
     Scaffold(
         containerColor = backgroundColor,
         topBar = {
@@ -77,6 +84,13 @@ fun AnalyticsScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showAddBudgetDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = "Add Budget",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     Box(
                         modifier = Modifier
                             .size(44.dp)
@@ -102,7 +116,15 @@ fun AnalyticsScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Budget Circle Card
+            // New Budget List Section
+             item {
+                BudgetListSection(
+                    budgets = uiState.activeBudgets,
+                    onDelete = { viewModel.deleteBudget(it) }
+                )
+            }
+            
+            // Budget Circle Card (Summary of Monthly Budget if available, else static)
             item {
                 BudgetCircleCard(
                     spentAmount = uiState.totalSpent,
@@ -707,6 +729,7 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
     private val db = AppDatabase.getDatabase(application)
     private val transactionDao = db.transactionDao()
     private val categoryDao = db.categoryDao()
+    private val budgetDao = db.budgetDao()
     
     private val _uiState = MutableStateFlow(AnalyticsUiState())
     val uiState: StateFlow<AnalyticsUiState> = _uiState.asStateFlow()
@@ -732,6 +755,78 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
         currentMonthEnd = calendar.timeInMillis
         
         loadAnalyticsData()
+        loadBudgets()
+    }
+
+    fun addBudget(amount: Double, type: BudgetType) {
+        viewModelScope.launch {
+            val budget = Budget(amount = amount, type = type)
+            budgetDao.insert(budget)
+            // loadBudgets() will be triggered by flow collection if we used flow, but here we might need to manually reload or observe
+            // Since getAllBudgets returns a Flow, we should observe it. 
+            // However, loadBudgets below observes the flow, so this insert will auto-trigger updates.
+        }
+    }
+
+    fun deleteBudget(budget: Budget) {
+        viewModelScope.launch {
+            budgetDao.delete(budget)
+        }
+    }
+
+    private fun loadBudgets() {
+        viewModelScope.launch {
+            budgetDao.getAllBudgets().collect { budgets ->
+                val calendar = Calendar.getInstance()
+                val currentMillis = System.currentTimeMillis()
+                
+                val budgetUiModels = budgets.map { budget ->
+                    var start: Long = 0
+                    var end: Long = 0
+                    
+                    if (budget.type == BudgetType.MONTHLY) {
+                        start = currentMonthStart
+                        end = currentMonthEnd
+                    } else {
+                        // Weekly
+                         val weekCal = Calendar.getInstance()
+                         weekCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                         weekCal.set(Calendar.HOUR_OF_DAY, 0)
+                         weekCal.set(Calendar.MINUTE, 0)
+                         weekCal.set(Calendar.SECOND, 0)
+                         weekCal.set(Calendar.MILLISECOND, 0)
+                         start = weekCal.timeInMillis
+                         
+                         weekCal.add(Calendar.DAY_OF_WEEK, 6)
+                         weekCal.set(Calendar.HOUR_OF_DAY, 23)
+                         weekCal.set(Calendar.MINUTE, 59)
+                         weekCal.set(Calendar.SECOND, 59)
+                         end = weekCal.timeInMillis
+                    }
+
+                    // For now, simple total spent in that range. 
+                    // Ideally should filter by category if budget.categoryId is set.
+                    // But for MVP, assume global budget or handle category later specific if requested.
+                    // The TransactionDao needs a generic getSpentByRange or we reuse existing.
+                    // We can't suspend here inside map easily without async/await. 
+                    // Better approach: Get all transactions for max range and filter in memory for UI responsiveness, 
+                    // OR use a specific DAO query. 
+                    // To keep it simple and responsive, we'll fetch 'total spent' for the range.
+                    // Since specific query inside map is inefficient (N+1), 
+                    // let's fetch 'spent' asynchronously or using a joined query.
+                    
+                    // Optimization: We already have transactions. But 'loadAnalyticsData' fetches them separately.
+                    // Let's rely on a helper or just run the query for now (simpler impl).
+                    val spent = transactionDao.getTotalSpentSync(start, end) ?: 0.0 // Need to add sync method or use flow first()
+                    
+                    val progress = if (budget.amount > 0) (spent / budget.amount).toFloat().coerceIn(0f, 1f) else 0f
+                    val remaining = (budget.amount - spent).coerceAtLeast(0.0)
+                    
+                    BudgetUiModel(budget, spent, progress, remaining)
+                }
+                _uiState.value = _uiState.value.copy(activeBudgets = budgetUiModels)
+            }
+        }
     }
     
     private fun loadAnalyticsData() {
@@ -890,15 +985,23 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
     }
 }
 
+data class BudgetUiModel(
+    val budget: Budget,
+    val spent: Double,
+    val progress: Float, // 0.0 to 1.0
+    val remaining: Double
+)
+
 data class AnalyticsUiState(
     val totalSpent: Double = 0.0,
-    val budgetAmount: Double = 50000.0,
+    val budgetAmount: Double = 50000.0, // Legacy support, can be removed later or mapped to a default budget
     val remainingBudget: Double = 50000.0,
     val dailyAverage: Double = 0.0,
     val selectedPeriod: String = "Week",
     val dateRange: String = "",
     val weeklySpending: List<DailySpending> = emptyList(),
     val topMerchants: List<MerchantSpending> = emptyList(),
-    val categoryBreakdown: List<CategorySpending> = emptyList()
+    val categoryBreakdown: List<CategorySpending> = emptyList(),
+    val activeBudgets: List<BudgetUiModel> = emptyList()
 )
 

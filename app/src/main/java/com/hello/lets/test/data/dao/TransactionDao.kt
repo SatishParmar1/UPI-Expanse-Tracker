@@ -64,6 +64,16 @@ interface TransactionDao {
     fun getTotalIncome(startDate: Long, endDate: Long): Flow<Double>
     
     /**
+     * Get total amount spent (debited) in a date range (Synchronous).
+     */
+    @Query("""
+        SELECT COALESCE(SUM(amount), 0.0) FROM transactions 
+        WHERE transactionType = 'DEBIT' 
+        AND transactionDate BETWEEN :startDate AND :endDate
+    """)
+    suspend fun getTotalSpentSync(startDate: Long, endDate: Long): Double?
+    
+    /**
      * Get transactions by category.
      */
     @Query("""

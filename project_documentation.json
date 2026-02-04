@@ -134,6 +134,18 @@
         "Budget history"
       ],
       "status": "PLANNED"
+    },
+    "lockScreen": {
+      "path": "screen/ui/lock/LockScreen.kt",
+      "features": [
+        "Biometric authentication (fingerprint/face)",
+        "Device credential fallback (PIN/pattern/password)",
+        "Animated fingerprint icon with glow effect",
+        "Offline mode badge",
+        "Data privacy message",
+        "Automatic authentication on screen open"
+      ],
+      "status": "IMPLEMENTED"
     }
   },
   "database": {

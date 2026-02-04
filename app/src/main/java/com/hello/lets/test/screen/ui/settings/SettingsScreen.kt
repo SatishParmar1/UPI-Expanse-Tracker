@@ -588,6 +588,7 @@ private fun EncryptionBadge() {
 // ViewModel
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
+    private val prefs = com.hello.lets.test.data.preferences.AppPreferences.getInstance(application)
     
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -597,6 +598,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     private fun loadSettings() {
+        // Load lock settings from preferences
+        _uiState.value = _uiState.value.copy(
+            isAppLockEnabled = prefs.isAppLockEnabled,
+            isBiometricEnabled = prefs.isBiometricEnabled
+        )
+        
         viewModelScope.launch {
             // Load from shared preferences and database
             db.parsingRuleDao().getActiveCount().collect { count ->
@@ -612,11 +619,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     fun toggleAppLock() {
-        _uiState.value = _uiState.value.copy(isAppLockEnabled = !_uiState.value.isAppLockEnabled)
+        val newValue = !_uiState.value.isAppLockEnabled
+        prefs.isAppLockEnabled = newValue
+        _uiState.value = _uiState.value.copy(isAppLockEnabled = newValue)
     }
     
     fun toggleBiometric() {
-        _uiState.value = _uiState.value.copy(isBiometricEnabled = !_uiState.value.isBiometricEnabled)
+        val newValue = !_uiState.value.isBiometricEnabled
+        prefs.isBiometricEnabled = newValue
+        _uiState.value = _uiState.value.copy(isBiometricEnabled = newValue)
     }
     
     fun showThemeDialog() {
@@ -629,7 +640,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 }
 
 data class SettingsUiState(
-    val isAppLockEnabled: Boolean = false,
+    val isAppLockEnabled: Boolean = true,
     val isBiometricEnabled: Boolean = true,
     val lastBackupTime: String = "Today, 9:00 AM",
     val activeRulesCount: Int = 12,

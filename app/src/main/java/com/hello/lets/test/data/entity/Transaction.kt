@@ -58,6 +58,9 @@ data class Transaction(
     /** Balance after transaction */
     val balanceAfter: Double? = null,
     
+    /** Foreign key to BankAccount (for multi-bank support) */
+    val bankAccountId: Long? = null,
+    
     /** User-added notes */
     val notes: String? = null,
     

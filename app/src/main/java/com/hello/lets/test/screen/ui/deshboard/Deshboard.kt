@@ -31,6 +31,7 @@ import com.hello.lets.test.screen.ui.analytics.AnalyticsScreen
 import com.hello.lets.test.screen.ui.goals.AddGoalScreen
 import com.hello.lets.test.screen.ui.goals.GoalsScreen
 import com.hello.lets.test.screen.ui.homepage.Homepage
+import com.hello.lets.test.screen.ui.profile.ProfileScreen
 import com.hello.lets.test.screen.ui.settings.KeywordRulesScreen
 import com.hello.lets.test.screen.ui.settings.SettingsScreen
 import com.hello.lets.test.screen.ui.transaction.AllTransactionsScreen
@@ -72,6 +73,9 @@ fun AppNavHost(
                 },
                 onViewAllClick = {
                     navController.navigate("all_transactions")
+                },
+                onProfileClick = {
+                    navController.navigate("profile")
                 }
             )
         }
@@ -128,6 +132,12 @@ fun AppNavHost(
                 onTransactionClick = { transactionId ->
                     navController.navigate("transaction_details/$transactionId")
                 }
+            )
+        }
+        // Profile screen
+        composable("profile") {
+            ProfileScreen(
+                onBackClick = { navController.popBackStack() }
             )
         }
     }

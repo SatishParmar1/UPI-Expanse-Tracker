@@ -8,6 +8,8 @@ import com.hello.lets.test.data.entity.Category
 import com.hello.lets.test.data.entity.ExcludedSender
 import com.hello.lets.test.data.entity.ParsingRule
 import com.hello.lets.test.data.entity.Transaction
+import com.hello.lets.test.data.dao.BudgetDao
+import com.hello.lets.test.data.entity.Budget
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -18,7 +20,8 @@ class TransactionRepository(
     private val transactionDao: TransactionDao,
     private val categoryDao: CategoryDao,
     private val parsingRuleDao: ParsingRuleDao,
-    private val excludedSenderDao: ExcludedSenderDao
+    private val excludedSenderDao: ExcludedSenderDao,
+    private val budgetDao: BudgetDao
 ) {
     
     // ==================== Transactions ====================
@@ -112,4 +115,24 @@ class TransactionRepository(
     
     suspend fun deleteExcludedSender(sender: ExcludedSender) =
         excludedSenderDao.delete(sender)
+
+    // ==================== Budgets ====================
+
+    fun getAllBudgets(): Flow<List<Budget>> =
+        budgetDao.getAllBudgets()
+
+    fun getActiveBudgets(): Flow<List<Budget>> =
+        budgetDao.getActiveBudgets()
+
+    fun getActiveBudgetCount(): Flow<Int> =
+        budgetDao.getActiveCount()
+
+    suspend fun insertBudget(budget: Budget): Long =
+        budgetDao.insert(budget)
+
+    suspend fun updateBudget(budget: Budget) =
+        budgetDao.update(budget)
+
+    suspend fun deleteBudget(budget: Budget) =
+        budgetDao.delete(budget)
 }

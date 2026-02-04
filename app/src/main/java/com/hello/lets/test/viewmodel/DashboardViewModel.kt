@@ -4,9 +4,12 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hello.lets.test.data.AppDatabase
+import com.hello.lets.test.data.entity.BankCodes
+import com.hello.lets.test.data.entity.BankAccount
 import com.hello.lets.test.data.entity.Category
 import com.hello.lets.test.data.entity.Transaction
 import com.hello.lets.test.data.entity.TransactionType
+import com.hello.lets.test.data.entity.UserProfile
 import com.hello.lets.test.data.repository.TransactionRepository
 import com.hello.lets.test.sms.SmsReader
 import com.hello.lets.test.sms.TransactionParser
@@ -64,16 +67,28 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
      * Dashboard UI state combining all data streams.
      */
     val uiState: StateFlow<DashboardUiState> = combine(
-        repository.getTotalSpent(currentMonthStart, currentMonthEnd),
-        repository.getTotalIncome(currentMonthStart, currentMonthEnd),
-        repository.getRecentTransactions(5),
-        repository.getTransactionCount()
-    ) { spent, income, recentTransactions, count ->
+        combine(
+            repository.getTotalSpent(currentMonthStart, currentMonthEnd),
+            repository.getTotalIncome(currentMonthStart, currentMonthEnd),
+            repository.getRecentTransactions(5),
+            repository.getTransactionCount()
+        ) { spent, income, recentTransactions, count ->
+            StatsData(spent, income, recentTransactions, count)
+        },
+        combine(
+            database.userProfileDao().getProfile(),
+            database.bankAccountDao().getAllAccounts()
+        ) { profile, accounts ->
+            UserData(profile, accounts)
+        }
+    ) { stats, user ->
         DashboardUiState(
-            totalSpent = spent,
-            totalIncome = income,
-            recentTransactions = recentTransactions,
-            transactionCount = count,
+            totalSpent = stats.spent,
+            totalIncome = stats.income,
+            recentTransactions = stats.recentTransactions,
+            transactionCount = stats.count,
+            userName = user.profile?.name ?: "User",
+            bankAccounts = user.accounts,
             isLoading = false
         )
     }.stateIn(
@@ -109,6 +124,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 // Get active parsing rules for category matching
                 val rules = repository.getActiveRulesList()
                 
+                // Get all bank accounts to check for existence
+                val existingAccounts = database.bankAccountDao().getAllAccountsList()
+                
                 var newTransactionCount = 0
                 
                 for (sms in messages) {
@@ -131,6 +149,44 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         // Find matching category based on rules
                         val categoryId = findCategoryForMerchant(parsed.merchant, rules)
                         
+                        // Detect bank from sender
+                        val bankInfo = com.hello.lets.test.data.entity.BankCodes.getBankFromSender(sms.address)
+                        var bankAccountId: Long? = null
+                        
+                        if (bankInfo != null) {
+                            val (bankCode, bankName) = bankInfo
+                            
+                            // Find existing account or create new one
+                            var account = existingAccounts.find { it.bankCode == bankCode }
+                            
+                            if (account == null) {
+                                // Create new bank account
+                                val newAccount = com.hello.lets.test.data.entity.BankAccount(
+                                    bankName = bankName,
+                                    bankCode = bankCode,
+                                    accountNumber = parsed.accountNumber,
+                                    currentBalance = parsed.balance ?: 0.0,
+                                    isDefault = existingAccounts.isEmpty(), // Make default if it's the first one
+                                    colorHex = com.hello.lets.test.data.entity.BankCodes.getBankColor(bankCode)
+                                )
+                                val newId = database.bankAccountDao().insert(newAccount)
+                                bankAccountId = newId
+                            } else {
+                                bankAccountId = account.id
+                                
+                                // Update balance if available in SMS
+                                if (parsed.balance != null) {
+                                    database.bankAccountDao().updateBalance(account.id, parsed.balance)
+                                }
+                                
+                                // Update account number if available and missing
+                                if (account.accountNumber == null && parsed.accountNumber != null) {
+                                    val updatedAccount = account.copy(accountNumber = parsed.accountNumber)
+                                    database.bankAccountDao().update(updatedAccount)
+                                }
+                            }
+                        }
+                        
                         val transaction = Transaction(
                             amount = parsed.amount,
                             merchant = parsed.merchant ?: extractSenderName(sms.address),
@@ -141,7 +197,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             smsAddress = sms.address,
                             referenceId = parsed.referenceId,
                             accountNumber = parsed.accountNumber,
-                            balanceAfter = parsed.balance
+                            balanceAfter = parsed.balance,
+                            bankAccountId = bankAccountId
                         )
                         
                         val id = repository.insertTransaction(transaction)
@@ -232,6 +289,8 @@ data class DashboardUiState(
     val budget: Double = 50000.0,
     val recentTransactions: List<Transaction> = emptyList(),
     val transactionCount: Int = 0,
+    val userName: String = "User",
+    val bankAccounts: List<com.hello.lets.test.data.entity.BankAccount> = emptyList(),
     val isLoading: Boolean = true
 ) {
     val remainingBudget: Double get() = budget - totalSpent
@@ -246,4 +305,16 @@ data class SyncState(
     val syncedCount: Int = 0,
     val lastSyncTime: Long? = null,
     val error: String? = null
+)
+
+private data class StatsData(
+    val spent: Double,
+    val income: Double,
+    val recentTransactions: List<Transaction>,
+    val count: Int
+)
+
+private data class UserData(
+    val profile: UserProfile?,
+    val accounts: List<BankAccount>
 )

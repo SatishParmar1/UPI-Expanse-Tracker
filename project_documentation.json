@@ -1,6 +1,6 @@
 {
   "project": {
-    "name": "UPI Expense Tracker",
+    "name": "Tractal",
     "package": "com.hello.lets.test",
     "description": "A privacy-focused Android app that automatically tracks UPI transactions by parsing SMS messages locally on device. No data is sent to any server.",
     "version": "1.0.0",
@@ -32,6 +32,33 @@
         "View analytics navigation"
       ]
     },
+    "onboarding": {
+      "path": "screen/ui/onboarding/OnboardingScreen.kt",
+      "viewModel": "OnboardingViewModel",
+      "features": [
+        "Welcome slider",
+        "User profile setup (Name/Phone)",
+        "Bank account setup",
+        "Multi-bank addition support",
+        "IFSC code lookup (Razorpay API)",
+        "Auto-fetch bank details from IFSC",
+        "Custom bank registration"
+      ],
+      "status": "IMPLEMENTED"
+    },
+    "profile": {
+      "path": "screen/ui/profile/ProfileScreen.kt",
+      "viewModel": "ProfileViewModel",
+      "features": [
+        "User details card",
+        "Bank accounts list with validation",
+        "Total balance summary",
+        "Monthly statistics",
+        "Add new bank option",
+        "Edit profile details"
+      ],
+      "status": "IMPLEMENTED"
+    },
     "analytics": {
       "path": "screen/ui/analytics/AnalyticsScreen.kt",
       "viewModel": "AnalyticsViewModel",
@@ -42,7 +69,9 @@
         "Top merchants breakdown",
         "Category-wise spending breakdown",
         "Period selection (Week/Month)",
-        "Daily average calculation"
+        "Daily average calculation",
+        "Budget Management (Add/Delete)",
+        "Support for Weekly/Monthly Budgets"
       ]
     },
     "goals": {
@@ -179,6 +208,12 @@
             "foreignKey": "Category"
           },
           {
+            "name": "bankAccountId",
+            "type": "Long?",
+            "foreignKey": "BankAccount",
+            "description": "Linked bank account ID"
+          },
+          {
             "name": "transactionType",
             "type": "TransactionType",
             "enum": [
@@ -226,6 +261,47 @@
           "transactionDate",
           "categoryId",
           "merchant"
+        ]
+      },
+      "BankAccount": {
+        "tableName": "bank_accounts",
+        "path": "data/entity/BankAccount.kt",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Long",
+            "primaryKey": true,
+            "autoGenerate": true
+          },
+          {
+            "name": "bankName",
+            "type": "String"
+          },
+          {
+            "name": "bankCode",
+            "type": "String",
+            "description": "Short code (e.g. HDFC)"
+          },
+          {
+            "name": "accountNumber",
+            "type": "String?",
+            "description": "Last 4 digits"
+          },
+          {
+            "name": "currentBalance",
+            "type": "Double",
+            "default": 0.0
+          },
+          {
+            "name": "isDefault",
+            "type": "Boolean",
+            "default": false
+          },
+          {
+            "name": "colorHex",
+            "type": "String",
+            "description": "Theme color for bank"
+          }
         ]
       },
       "SavingsGoal": {
@@ -382,6 +458,40 @@
             "type": "String?"
           }
         ]
+      },
+      "Budget": {
+        "tableName": "budgets",
+        "path": "data/entity/Budget.kt",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Long",
+            "primaryKey": true,
+            "autoGenerate": true
+          },
+          {
+            "name": "amount",
+            "type": "Double"
+          },
+          {
+            "name": "type",
+            "type": "BudgetType",
+            "enum": [
+              "WEEKLY",
+              "MONTHLY"
+            ]
+          },
+          {
+            "name": "categoryId",
+            "type": "Long?",
+            "foreignKey": "Category"
+          },
+          {
+            "name": "isActive",
+            "type": "Boolean",
+            "default": true
+          }
+        ]
       }
     },
     "daos": {
@@ -449,6 +559,17 @@
           "isExcluded",
           "getCount",
           "insert",
+          "delete"
+        ]
+      },
+      "BudgetDao": {
+        "path": "data/dao/BudgetDao.kt",
+        "operations": [
+          "getAllBudgets",
+          "getActiveBudgets",
+          "getActiveCount",
+          "insert",
+          "update",
           "delete"
         ]
       }
@@ -559,10 +680,10 @@
     }
   ],
   "privacyFeatures": [
-    "All data stored locally on device",
     "No network requests for transaction data",
     "No cloud sync - fully offline",
-    "Optional app lock",
-    "Optional biometric authentication"
+    "Optional app lock (Default: Off)",
+    "Optional biometric authentication (Default: Off)",
+    "On-device Razorpay IFSC lookup (Privacy preserved)"
   ]
 }

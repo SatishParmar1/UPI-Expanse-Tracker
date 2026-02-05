@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
         Budget::class,
         UserProfile::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

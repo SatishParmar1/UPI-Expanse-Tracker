@@ -5,15 +5,18 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,7 +34,16 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hello.lets.test.data.entity.Budget
 import com.hello.lets.test.data.entity.BudgetType
+import com.hello.lets.test.data.AppDatabase
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import java.util.Calendar
+import java.text.SimpleDateFormat
+import java.util.Locale
+import com.hello.lets.test.ui.theme.LiterataFontFamily
 
 /**
  * Analytics screen with spending insights and budget performance.
@@ -91,19 +103,6 @@ fun AnalyticsScreen(
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(surfaceColor),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Person,
-                            contentDescription = "Profile",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
             )
@@ -116,10 +115,22 @@ fun AnalyticsScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // New Budget List Section
-             item {
+            // Budget Type Filter Tabs
+            item {
+                BudgetTypeFilterTabs(
+                    selectedFilter = uiState.selectedBudgetFilter,
+                    onFilterChange = { viewModel.setBudgetFilter(it) },
+                    dailyCount = uiState.dailyBudgetCount,
+                    weeklyCount = uiState.weeklyBudgetCount,
+                    monthlyCount = uiState.monthlyBudgetCount
+                )
+            }
+            
+            // Budget List Section with Edit/Delete
+            item {
                 BudgetListSection(
                     budgets = uiState.activeBudgets,
+                    onEdit = { budget -> viewModel.editBudget(budget) },
                     onDelete = { viewModel.deleteBudget(it) }
                 )
             }
@@ -758,13 +769,23 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
         loadBudgets()
     }
 
-    fun addBudget(amount: Double, type: BudgetType) {
+    fun addBudget(amount: Double, type: BudgetType, name: String = "", bankAccountId: Long? = null, categoryId: Long? = null) {
         viewModelScope.launch {
-            val budget = Budget(amount = amount, type = type)
+            val budgetName = name.ifEmpty { "${type.name.lowercase().replaceFirstChar { it.uppercase() }} Budget" }
+            val budget = Budget(
+                name = budgetName,
+                amount = amount,
+                type = type,
+                bankAccountId = bankAccountId,
+                categoryId = categoryId
+            )
             budgetDao.insert(budget)
-            // loadBudgets() will be triggered by flow collection if we used flow, but here we might need to manually reload or observe
-            // Since getAllBudgets returns a Flow, we should observe it. 
-            // However, loadBudgets below observes the flow, so this insert will auto-trigger updates.
+        }
+    }
+    
+    fun editBudget(budget: Budget) {
+        viewModelScope.launch {
+            budgetDao.update(budget)
         }
     }
 
@@ -773,58 +794,117 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
             budgetDao.delete(budget)
         }
     }
+    
+    fun setBudgetFilter(type: BudgetType?) {
+        _uiState.value = _uiState.value.copy(selectedBudgetFilter = type)
+        loadBudgets()
+    }
 
     private fun loadBudgets() {
         viewModelScope.launch {
-            budgetDao.getAllBudgets().collect { budgets ->
+            val selectedFilter = _uiState.value.selectedBudgetFilter
+            val budgetFlow = if (selectedFilter != null) {
+                budgetDao.getBudgetsByType(selectedFilter)
+            } else {
+                budgetDao.getActiveBudgets()
+            }
+            
+            budgetFlow.collect { budgets ->
                 val calendar = Calendar.getInstance()
                 val currentMillis = System.currentTimeMillis()
+                
+                // Count budgets by type
+                val dailyCount = budgets.count { it.type == BudgetType.DAILY }
+                val weeklyCount = budgets.count { it.type == BudgetType.WEEKLY }
+                val monthlyCount = budgets.count { it.type == BudgetType.MONTHLY }
                 
                 val budgetUiModels = budgets.map { budget ->
                     var start: Long = 0
                     var end: Long = 0
+                    var daysTotal = 1
+                    var daysRemaining = 0
                     
-                    if (budget.type == BudgetType.MONTHLY) {
-                        start = currentMonthStart
-                        end = currentMonthEnd
-                    } else {
-                        // Weekly
-                         val weekCal = Calendar.getInstance()
-                         weekCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-                         weekCal.set(Calendar.HOUR_OF_DAY, 0)
-                         weekCal.set(Calendar.MINUTE, 0)
-                         weekCal.set(Calendar.SECOND, 0)
-                         weekCal.set(Calendar.MILLISECOND, 0)
-                         start = weekCal.timeInMillis
-                         
-                         weekCal.add(Calendar.DAY_OF_WEEK, 6)
-                         weekCal.set(Calendar.HOUR_OF_DAY, 23)
-                         weekCal.set(Calendar.MINUTE, 59)
-                         weekCal.set(Calendar.SECOND, 59)
-                         end = weekCal.timeInMillis
+                    when (budget.type) {
+                        BudgetType.DAILY -> {
+                            val dayCal = Calendar.getInstance()
+                            dayCal.set(Calendar.HOUR_OF_DAY, 0)
+                            dayCal.set(Calendar.MINUTE, 0)
+                            dayCal.set(Calendar.SECOND, 0)
+                            dayCal.set(Calendar.MILLISECOND, 0)
+                            start = dayCal.timeInMillis
+                            
+                            dayCal.set(Calendar.HOUR_OF_DAY, 23)
+                            dayCal.set(Calendar.MINUTE, 59)
+                            dayCal.set(Calendar.SECOND, 59)
+                            end = dayCal.timeInMillis
+                            daysTotal = 1
+                            daysRemaining = 0 // Current day
+                        }
+                        BudgetType.WEEKLY -> {
+                            val weekCal = Calendar.getInstance()
+                            weekCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                            weekCal.set(Calendar.HOUR_OF_DAY, 0)
+                            weekCal.set(Calendar.MINUTE, 0)
+                            weekCal.set(Calendar.SECOND, 0)
+                            weekCal.set(Calendar.MILLISECOND, 0)
+                            start = weekCal.timeInMillis
+                            
+                            weekCal.add(Calendar.DAY_OF_WEEK, 6)
+                            weekCal.set(Calendar.HOUR_OF_DAY, 23)
+                            weekCal.set(Calendar.MINUTE, 59)
+                            weekCal.set(Calendar.SECOND, 59)
+                            end = weekCal.timeInMillis
+                            daysTotal = 7
+                            
+                            val currentDayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+                            daysRemaining = if (currentDayOfWeek == Calendar.SUNDAY) 0 else (Calendar.SATURDAY - currentDayOfWeek + 1)
+                        }
+                        BudgetType.MONTHLY -> {
+                            start = currentMonthStart
+                            end = currentMonthEnd
+                            daysTotal = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+                            daysRemaining = daysTotal - calendar.get(Calendar.DAY_OF_MONTH)
+                        }
                     }
-
-                    // For now, simple total spent in that range. 
-                    // Ideally should filter by category if budget.categoryId is set.
-                    // But for MVP, assume global budget or handle category later specific if requested.
-                    // The TransactionDao needs a generic getSpentByRange or we reuse existing.
-                    // We can't suspend here inside map easily without async/await. 
-                    // Better approach: Get all transactions for max range and filter in memory for UI responsiveness, 
-                    // OR use a specific DAO query. 
-                    // To keep it simple and responsive, we'll fetch 'total spent' for the range.
-                    // Since specific query inside map is inefficient (N+1), 
-                    // let's fetch 'spent' asynchronously or using a joined query.
                     
-                    // Optimization: We already have transactions. But 'loadAnalyticsData' fetches them separately.
-                    // Let's rely on a helper or just run the query for now (simpler impl).
-                    val spent = transactionDao.getTotalSpentSync(start, end) ?: 0.0 // Need to add sync method or use flow first()
-                    
+                    val spent = transactionDao.getTotalSpentSync(start, end) ?: 0.0
                     val progress = if (budget.amount > 0) (spent / budget.amount).toFloat().coerceIn(0f, 1f) else 0f
                     val remaining = (budget.amount - spent).coerceAtLeast(0.0)
+                    val isOverBudget = spent > budget.amount
                     
-                    BudgetUiModel(budget, spent, progress, remaining)
+                    // Calculate projected spending
+                    val daysElapsed = daysTotal - daysRemaining
+                    val dailyRate = if (daysElapsed > 0) spent / daysElapsed else 0.0
+                    val projectedSpending = dailyRate * daysTotal
+                    
+                    // Status text
+                    val statusText = when {
+                        isOverBudget -> "Over budget!"
+                        progress > 0.9f -> "Almost exceeded"
+                        progress > 0.8f -> "Approaching limit"
+                        projectedSpending > budget.amount && daysRemaining > 0 -> "May exceed"
+                        else -> "On track"
+                    }
+                    
+                    BudgetUiModel(
+                        budget = budget,
+                        spent = spent,
+                        progress = progress,
+                        remaining = remaining,
+                        daysRemaining = daysRemaining,
+                        daysTotal = daysTotal,
+                        isOverBudget = isOverBudget,
+                        projectedSpending = projectedSpending,
+                        statusText = statusText
+                    )
                 }
-                _uiState.value = _uiState.value.copy(activeBudgets = budgetUiModels)
+                
+                _uiState.value = _uiState.value.copy(
+                    activeBudgets = budgetUiModels,
+                    dailyBudgetCount = dailyCount,
+                    weeklyBudgetCount = weeklyCount,
+                    monthlyBudgetCount = monthlyCount
+                )
             }
         }
     }
@@ -989,12 +1069,17 @@ data class BudgetUiModel(
     val budget: Budget,
     val spent: Double,
     val progress: Float, // 0.0 to 1.0
-    val remaining: Double
+    val remaining: Double,
+    val daysRemaining: Int = 0,
+    val daysTotal: Int = 1,
+    val isOverBudget: Boolean = false,
+    val projectedSpending: Double = 0.0,
+    val statusText: String = "On track"
 )
 
 data class AnalyticsUiState(
     val totalSpent: Double = 0.0,
-    val budgetAmount: Double = 50000.0, // Legacy support, can be removed later or mapped to a default budget
+    val budgetAmount: Double = 50000.0,
     val remainingBudget: Double = 50000.0,
     val dailyAverage: Double = 0.0,
     val selectedPeriod: String = "Week",
@@ -1002,6 +1087,344 @@ data class AnalyticsUiState(
     val weeklySpending: List<DailySpending> = emptyList(),
     val topMerchants: List<MerchantSpending> = emptyList(),
     val categoryBreakdown: List<CategorySpending> = emptyList(),
-    val activeBudgets: List<BudgetUiModel> = emptyList()
+    val activeBudgets: List<BudgetUiModel> = emptyList(),
+    val selectedBudgetFilter: BudgetType? = null, // null = All
+    val dailyBudgetCount: Int = 0,
+    val weeklyBudgetCount: Int = 0,
+    val monthlyBudgetCount: Int = 0
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddBudgetDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (Double, BudgetType) -> Unit
+) {
+    var amountText by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(BudgetType.MONTHLY) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Add Budget",
+                fontFamily = LiterataFontFamily,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it.filter { char -> char.isDigit() || char == '.' } },
+                    label = { Text("Budget Amount (₹)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Text(
+                    text = "Budget Type",
+                    fontSize = 14.sp,
+                    fontFamily = LiterataFontFamily,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedType == BudgetType.DAILY,
+                        onClick = { selectedType = BudgetType.DAILY },
+                        label = { Text("Daily") }
+                    )
+                    FilterChip(
+                        selected = selectedType == BudgetType.WEEKLY,
+                        onClick = { selectedType = BudgetType.WEEKLY },
+                        label = { Text("Weekly") }
+                    )
+                    FilterChip(
+                        selected = selectedType == BudgetType.MONTHLY,
+                        onClick = { selectedType = BudgetType.MONTHLY },
+                        label = { Text("Monthly") }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val amount = amountText.toDoubleOrNull()
+                    if (amount != null && amount > 0) {
+                        onConfirm(amount, selectedType)
+                    }
+                }
+            ) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun BudgetListSection(
+    budgets: List<BudgetUiModel>,
+    onEdit: (Budget) -> Unit = {},
+    onDelete: (Budget) -> Unit
+) {
+    if (budgets.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "No budgets set. Tap + to add one.",
+                fontSize = 14.sp,
+                fontFamily = LiterataFontFamily,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = "Active Budgets",
+                fontSize = 20.sp,
+                fontFamily = LiterataFontFamily,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            budgets.forEach { budgetModel ->
+                BudgetItemCard(
+                    budgetModel = budgetModel,
+                    onEdit = { onEdit(budgetModel.budget) },
+                    onDelete = { onDelete(budgetModel.budget) }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BudgetTypeFilterTabs(
+    selectedFilter: BudgetType?,
+    onFilterChange: (BudgetType?) -> Unit,
+    dailyCount: Int,
+    weeklyCount: Int,
+    monthlyCount: Int
+) {
+    val filters = listOf(
+        null to "All",
+        BudgetType.DAILY to "Daily ($dailyCount)",
+        BudgetType.WEEKLY to "Weekly ($weeklyCount)",
+        BudgetType.MONTHLY to "Monthly ($monthlyCount)"
+    )
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        filters.forEach { (type, label) ->
+            FilterChip(
+                selected = selectedFilter == type,
+                onClick = { onFilterChange(type) },
+                label = { 
+                    Text(
+                        text = label,
+                        fontFamily = LiterataFontFamily,
+                        fontSize = 13.sp
+                    ) 
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color(0xFF4CAF50),
+                    selectedLabelColor = Color.White
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun BudgetItemCard(
+    budgetModel: BudgetUiModel,
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit
+) {
+    val primaryGreen = Color(0xFF4CAF50)
+    val warningOrange = Color(0xFFFF9800)
+    val dangerRed = Color(0xFFEF4444)
+    
+    val progressColor = when {
+        budgetModel.isOverBudget -> dangerRed
+        budgetModel.progress > 0.8f -> warningOrange
+        else -> primaryGreen
+    }
+    
+    val statusColor = when (budgetModel.statusText) {
+        "Over budget!" -> dangerRed
+        "Almost exceeded", "Approaching limit" -> warningOrange
+        "May exceed" -> warningOrange.copy(alpha = 0.8f)
+        else -> primaryGreen
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    // Budget name or type
+                    Text(
+                        text = budgetModel.budget.name.ifEmpty { "${budgetModel.budget.type.name} Budget" },
+                        fontSize = 16.sp,
+                        fontFamily = LiterataFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    
+                    // Type badge
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(progressColor.copy(alpha = 0.15f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = budgetModel.budget.type.name,
+                            fontSize = 10.sp,
+                            fontFamily = LiterataFontFamily,
+                            color = progressColor
+                        )
+                    }
+                }
+                
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            imageVector = Icons.Rounded.Edit,
+                            contentDescription = "Edit Budget",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Rounded.Delete,
+                            contentDescription = "Delete Budget",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Amount display
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "₹${String.format("%.0f", budgetModel.spent)} / ₹${String.format("%.0f", budgetModel.budget.amount)}",
+                    fontSize = 18.sp,
+                    fontFamily = LiterataFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${(budgetModel.progress * 100).toInt()}%",
+                    fontSize = 14.sp,
+                    fontFamily = LiterataFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    color = progressColor
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Progress bar
+            LinearProgressIndicator(
+                progress = { budgetModel.progress.coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = progressColor,
+                trackColor = progressColor.copy(alpha = 0.2f)
+            )
+            
+            Spacer(modifier = Modifier.height(10.dp))
+            
+            // Status row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Days remaining
+                val daysText = when {
+                    budgetModel.budget.type == BudgetType.DAILY -> "Today"
+                    budgetModel.daysRemaining == 0 -> "Last day"
+                    budgetModel.daysRemaining == 1 -> "1 day left"
+                    else -> "${budgetModel.daysRemaining} days left"
+                }
+                Text(
+                    text = daysText,
+                    fontSize = 12.sp,
+                    fontFamily = LiterataFontFamily,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                // Status badge
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(statusColor)
+                    )
+                    Text(
+                        text = budgetModel.statusText,
+                        fontSize = 12.sp,
+                        fontFamily = LiterataFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        color = statusColor
+                    )
+                }
+            }
+            
+            // Remaining amount
+            if (budgetModel.remaining > 0) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "₹${String.format("%.0f", budgetModel.remaining)} remaining",
+                    fontSize = 12.sp,
+                    fontFamily = LiterataFontFamily,
+                    color = primaryGreen
+                )
+            }
+        }
+    }
+}

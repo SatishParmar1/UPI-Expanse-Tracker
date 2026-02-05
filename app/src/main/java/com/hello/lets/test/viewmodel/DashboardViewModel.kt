@@ -34,7 +34,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         database.transactionDao(),
         database.categoryDao(),
         database.parsingRuleDao(),
-        database.excludedSenderDao()
+        database.excludedSenderDao(),
+        database.budgetDao()
     )
     private val smsReader = SmsReader(application)
     private val transactionParser = TransactionParser()

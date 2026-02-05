@@ -10,6 +10,7 @@ import com.hello.lets.test.data.entity.ParsingRule
 import com.hello.lets.test.data.entity.Transaction
 import com.hello.lets.test.data.dao.BudgetDao
 import com.hello.lets.test.data.entity.Budget
+import com.hello.lets.test.data.entity.BudgetType
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -123,9 +124,21 @@ class TransactionRepository(
 
     fun getActiveBudgets(): Flow<List<Budget>> =
         budgetDao.getActiveBudgets()
+    
+    suspend fun getActiveBudgetsSync(): List<Budget> =
+        budgetDao.getActiveBudgetsSync()
+    
+    fun getBudgetsByType(type: BudgetType): Flow<List<Budget>> =
+        budgetDao.getBudgetsByType(type)
+    
+    suspend fun getBudgetById(id: Long): Budget? =
+        budgetDao.getBudgetById(id)
 
     fun getActiveBudgetCount(): Flow<Int> =
         budgetDao.getActiveCount()
+    
+    fun getBudgetCountByType(type: BudgetType): Flow<Int> =
+        budgetDao.getCountByType(type)
 
     suspend fun insertBudget(budget: Budget): Long =
         budgetDao.insert(budget)

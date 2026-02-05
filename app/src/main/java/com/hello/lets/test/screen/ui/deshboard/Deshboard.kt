@@ -76,6 +76,12 @@ fun AppNavHost(
                 },
                 onProfileClick = {
                     navController.navigate("profile")
+                },
+                onInsightsClick = {
+                    navController.navigate("insights")
+                },
+                onSearchClick = {
+                    navController.navigate("search")
                 }
             )
         }
@@ -138,6 +144,21 @@ fun AppNavHost(
         composable("profile") {
             ProfileScreen(
                 onBackClick = { navController.popBackStack() }
+            )
+        }
+        // Insights screen
+        composable("insights") {
+            com.hello.lets.test.screen.ui.insights.InsightsScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+        // Search screen
+        composable("search") {
+            com.hello.lets.test.screen.ui.search.SearchScreen(
+                onBackClick = { navController.popBackStack() },
+                onTransactionClick = { transactionId ->
+                    navController.navigate("transaction_details/$transactionId")
+                }
             )
         }
     }

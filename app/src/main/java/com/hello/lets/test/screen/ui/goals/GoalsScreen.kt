@@ -1,6 +1,8 @@
 package com.hello.lets.test.screen.ui.goals
 
 import android.app.Application
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,11 +17,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
@@ -35,6 +42,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 /**
  * Goals screen showing savings goals with progress tracking.
@@ -402,7 +410,21 @@ fun GoalCard(
                     )
                 )
             }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Goal Insight Card
+            GoalInsightCard(goal = goal)
         }
+        
+        // Animated Progress Ring at top right
+        AnimatedProgressRing(
+            progress = goal.progressPercentage / 100f,
+            color = goalColor,
+            modifier = Modifier.align(Alignment.TopEnd),
+            size = 60.dp,
+            strokeWidth = 6.dp
+        )
     }
 }
 
@@ -424,6 +446,129 @@ fun formatAmount(amount: Double): String {
         amount >= 10000000 -> String.format("%.2f Cr", amount / 10000000)
         amount >= 100000 -> String.format("%.2f L", amount / 100000)
         else -> String.format("%,.0f", amount)
+    }
+}
+
+@Composable
+fun AnimatedProgressRing(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    color: Color = Color(0xFF4CAF50),
+    strokeWidth: Dp = 8.dp,
+    size: Dp = 80.dp
+) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+        label = "progress"
+    )
+    
+    Box(
+        modifier = modifier.size(size),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val sweepAngle = 360 * animatedProgress
+            val strokeWidthPx = strokeWidth.toPx()
+            
+            // Background track
+            drawArc(
+                color = color.copy(alpha = 0.2f),
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
+                size = Size(size.toPx() - strokeWidthPx, size.toPx() - strokeWidthPx),
+                topLeft = Offset(strokeWidthPx / 2, strokeWidthPx / 2)
+            )
+            
+            // Progress arc
+            drawArc(
+                color = color,
+                startAngle = -90f,
+                sweepAngle = sweepAngle,
+                useCenter = false,
+                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
+                size = Size(size.toPx() - strokeWidthPx, size.toPx() - strokeWidthPx),
+                topLeft = Offset(strokeWidthPx / 2, strokeWidthPx / 2)
+            )
+        }
+        
+        // Percentage text
+        Text(
+            text = "${(progress * 100).toInt()}%",
+            fontSize = 14.sp,
+            fontFamily = LiterataFontFamily,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+    }
+}
+
+@Composable
+fun GoalInsightCard(goal: SavingsGoal) {
+    val primaryGreen = Color(0xFF4CAF50)
+    val remaining = goal.targetAmount - goal.savedAmount
+    val daysToTarget = goal.targetDate?.let {
+        val daysLeft = TimeUnit.MILLISECONDS.toDays(it - System.currentTimeMillis()).toInt()
+        if (daysLeft > 0) daysLeft else 0
+    } ?: 30
+    
+    val dailySavingsNeeded = if (daysToTarget > 0) remaining / daysToTarget else remaining
+    
+    if (remaining > 0) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(primaryGreen.copy(alpha = 0.1f))
+                .padding(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Lightbulb,
+                    contentDescription = null,
+                    tint = primaryGreen,
+                    modifier = Modifier.size(20.dp)
+                )
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Daily Savings💡",
+                        fontSize = 12.sp,
+                        fontFamily = LiterataFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Save ₹${formatAmount(dailySavingsNeeded)}/day to reach your goal",
+                        fontSize = 11.sp,
+                        fontFamily = LiterataFontFamily,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                if (daysToTarget > 0) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(primaryGreen)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "${daysToTarget}d left",
+                            fontSize = 10.sp,
+                            fontFamily = LiterataFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

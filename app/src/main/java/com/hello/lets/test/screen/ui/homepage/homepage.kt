@@ -25,10 +25,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hello.lets.test.R
+import com.tractal.finance.app.R
 import com.hello.lets.test.ui.theme.LiterataFontFamily
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,7 +67,9 @@ fun Homepage(
     viewModel: DashboardViewModel = viewModel(),
     onTransactionClick: (Long) -> Unit = {},
     onViewAllClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {}
+    onProfileClick: () -> Unit = {},
+    onInsightsClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -153,13 +155,19 @@ fun Homepage(
                         )
                     }
                 }
-                NotificationButton()
+              /*  NotificationButton()*/
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Local Storage Badge
-            LocalStorageBadge()
+            /*// Local Storage Badge
+            LocalStorageBadge()*/
+
+            // Quick Actions Bar
+            QuickActionsBar(
+                onSearchClick = onSearchClick,
+                onInsightsClick = onInsightsClick
+            )
 
             Spacer(modifier = Modifier.height(15.dp))
 
@@ -203,6 +211,91 @@ fun Homepage(
 
             Spacer(modifier = Modifier.height(100.dp))
         }
+    }
+}
+
+@Composable
+fun QuickActionsBar(
+    onSearchClick: () -> Unit,
+    onInsightsClick: () -> Unit
+) {
+    val primaryGreen = Color(0xFF4CAF50)
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        QuickActionItem(
+            icon = Icons.Rounded.Search,
+            label = "Search",
+            color = MaterialTheme.colorScheme.primary,
+            onClick = onSearchClick
+        )
+        
+        QuickActionItem(
+            icon = Icons.Rounded.Lightbulb,
+            label = "Insights",
+            color = Color(0xFFFF9800),
+            onClick = onInsightsClick
+        )
+        
+        QuickActionItem(
+            icon = Icons.Rounded.TrendingUp,
+            label = "Trends",
+            color = primaryGreen,
+            onClick = {}
+        )
+        
+        QuickActionItem(
+            icon = Icons.Rounded.MoreHoriz,
+            label = "More",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            onClick = {}
+        )
+    }
+}
+
+@Composable
+fun QuickActionItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = color,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(6.dp))
+        
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontFamily = LiterataFontFamily,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

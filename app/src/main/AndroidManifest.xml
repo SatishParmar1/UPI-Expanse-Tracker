@@ -4,6 +4,9 @@
 
     <!-- SMS Permission for reading transaction messages -->
     <uses-permission android:name="android.permission.READ_SMS" />
+    
+    <!-- Internet Permission for network access -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -15,7 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Learnkotline">
         <activity
-            android:name=".MainActivity"
+            android:name="com.hello.lets.test.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Learnkotline.Splash">

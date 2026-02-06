@@ -6,7 +6,7 @@
     <!-- Splash screen theme -->
     <style name="Theme.Learnkotline.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/app_logo</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/app_logo_tp</item>
         <item name="postSplashScreenTheme">@style/Theme.Learnkotline</item>
     </style>
 </resources>

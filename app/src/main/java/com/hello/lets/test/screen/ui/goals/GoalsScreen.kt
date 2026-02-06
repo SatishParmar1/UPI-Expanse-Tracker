@@ -89,15 +89,7 @@ fun GoalsScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = onAddGoalClick
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = "Add Goal",
-                            tint = primaryGreen
-                        )
-                    }
+
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = darkBackground

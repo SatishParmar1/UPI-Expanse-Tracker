@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
@@ -44,6 +45,8 @@ import java.util.*
 /**
  * Search screen for finding transactions.
  */
+
+@Preview(showBackground = true)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
@@ -54,45 +57,52 @@ fun SearchScreen(
     val uiState by viewModel.uiState.collectAsState()
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    
+
     val primaryGreen = Color(0xFF4CAF50)
     val backgroundColor = MaterialTheme.colorScheme.background
-    
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
-    
+
     Scaffold(
         containerColor = backgroundColor,
         topBar = {
+            // --- TOP BAR: Back Button + Search Field ONLY ---
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(backgroundColor)
-                    .padding(16.dp)
+                    .statusBarsPadding()
+                    .padding(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    IconButton(onClick = onBackClick) {
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Rounded.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
-                    
+
                     OutlinedTextField(
                         value = uiState.searchQuery,
                         onValueChange = { viewModel.search(it) },
                         modifier = Modifier
                             .weight(1f)
                             .focusRequester(focusRequester),
-                        placeholder = { 
+                        placeholder = {
                             Text(
-                                "Search transactions...",
-                                fontFamily = LiterataFontFamily
-                            ) 
+                                "Search...",
+                                fontFamily = LiterataFontFamily,
+                                maxLines = 1
+                            )
                         },
                         leadingIcon = {
                             Icon(
@@ -111,19 +121,32 @@ fun SearchScreen(
                             }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primaryGreen,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                            cursorColor = primaryGreen
+                        ),
+                        // contentPadding removed here
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(
-                            onSearch = { focusManager.clearFocus() }
-                        )
+                        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
                     )
                 }
-                
-                // Filter chips
-                Spacer(modifier = Modifier.height(12.dp))
-                
+            }
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // --- CONTENT: Filter Chips moved here ---
+            item {
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(bottom = 8.dp) // Add some spacing below filters
                 ) {
                     item {
                         FilterChip(
@@ -168,15 +191,7 @@ fun SearchScreen(
                     }
                 }
             }
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+
             // Recent searches
             if (uiState.searchQuery.isEmpty() && uiState.recentSearches.isNotEmpty()) {
                 item {
@@ -189,7 +204,7 @@ fun SearchScreen(
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
-                
+
                 items(uiState.recentSearches) { search ->
                     RecentSearchItem(
                         query = search,
@@ -197,8 +212,8 @@ fun SearchScreen(
                     )
                 }
             }
-            
-            // Search results
+
+            // Search results header
             if (uiState.searchQuery.isNotEmpty()) {
                 item {
                     Text(
@@ -210,14 +225,15 @@ fun SearchScreen(
                     )
                 }
             }
-            
+
+            // Results List
             items(uiState.results) { transaction ->
                 SearchResultItem(
                     transaction = transaction,
                     onClick = { onTransactionClick(transaction.id) }
                 )
             }
-            
+
             // Empty state
             if (uiState.searchQuery.isNotEmpty() && uiState.results.isEmpty()) {
                 item {
@@ -247,7 +263,7 @@ fun SearchScreen(
                     }
                 }
             }
-            
+
             item { Spacer(modifier = Modifier.height(80.dp)) }
         }
     }

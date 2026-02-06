@@ -92,6 +92,8 @@ fun Homepage(
         }
     }
 
+
+
     // Auto-sync on first launch with permission
     LaunchedEffect(hasSmsPermission) {
         if (hasSmsPermission && uiState.transactionCount == 0) {

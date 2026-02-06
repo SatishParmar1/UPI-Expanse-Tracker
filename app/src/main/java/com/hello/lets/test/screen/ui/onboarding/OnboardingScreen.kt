@@ -44,6 +44,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.ui.tooling.preview.Preview
 
 /**
  * Onboarding screen for first-time users.
@@ -392,6 +393,7 @@ private fun ProfileStep(
                     color = Color.White.copy(alpha = 0.4f)
                 )
             },
+
             leadingIcon = {
                 Icon(
                     Icons.Rounded.Phone,
@@ -540,6 +542,24 @@ private fun BankAccountsStep(
             }
         } else {
             // Empty state - show quick add buttons
+
+            OutlinedButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = primaryGreen
+                ),
+                border = ButtonDefaults.outlinedButtonBorder.copy(
+                    brush = Brush.linearGradient(listOf(primaryGreen, primaryGreen))
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add Bank Using IFSC", fontFamily = LiterataFontFamily)
+            }
+
+
             Text(
                 text = "POPULAR BANKS",
                 fontSize = 11.sp,

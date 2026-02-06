@@ -10,6 +10,7 @@ import com.hello.lets.test.data.entity.Category
 import com.hello.lets.test.data.entity.Transaction
 import com.hello.lets.test.data.entity.TransactionType
 import com.hello.lets.test.data.entity.UserProfile
+import com.hello.lets.test.data.preferences.AppPreferences
 import com.hello.lets.test.data.repository.TransactionRepository
 import com.hello.lets.test.sms.SmsReader
 import com.hello.lets.test.sms.TransactionParser
@@ -39,6 +40,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     )
     private val smsReader = SmsReader(application)
     private val transactionParser = TransactionParser()
+    private val appPreferences = AppPreferences.getInstance(application)
     
     private val _syncState = MutableStateFlow(SyncState())
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
@@ -83,9 +85,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             UserData(profile, accounts)
         }
     ) { stats, user ->
+        val budget = appPreferences.monthlyBudget.toDouble()
         DashboardUiState(
             totalSpent = stats.spent,
             totalIncome = stats.income,
+            budget = budget,
             recentTransactions = stats.recentTransactions,
             transactionCount = stats.count,
             userName = user.profile?.name ?: "User",
@@ -287,7 +291,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 data class DashboardUiState(
     val totalSpent: Double = 0.0,
     val totalIncome: Double = 0.0,
-    val budget: Double = 50000.0,
+    val budget: Double = 0.0,
     val recentTransactions: List<Transaction> = emptyList(),
     val transactionCount: Int = 0,
     val userName: String = "User",

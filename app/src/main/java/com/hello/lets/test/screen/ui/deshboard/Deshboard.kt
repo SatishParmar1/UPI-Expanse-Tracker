@@ -82,6 +82,9 @@ fun AppNavHost(
                 },
                 onSearchClick = {
                     navController.navigate("search")
+                },
+                onAnalyticsClick = {
+                    navController.navigate(Destination.ANALYTICS.route)
                 }
             )
         }

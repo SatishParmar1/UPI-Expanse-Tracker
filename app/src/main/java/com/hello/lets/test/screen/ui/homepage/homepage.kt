@@ -69,7 +69,8 @@ fun Homepage(
     onViewAllClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onInsightsClick: () -> Unit = {},
-    onSearchClick: () -> Unit = {}
+    onSearchClick: () -> Unit = {},
+    onAnalyticsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -178,7 +179,8 @@ fun Homepage(
                 totalSpent = uiState.totalSpent,
                 budget = uiState.budget,
                 remainingBudget = uiState.remainingBudget,
-                spentPercentage = uiState.spentPercentage
+                spentPercentage = uiState.spentPercentage,
+                onAnalyticsClick = onAnalyticsClick
             )
 
             Spacer(modifier = Modifier.height(25.dp))
@@ -486,7 +488,8 @@ fun TotalSpentCard(
     totalSpent: Double,
     budget: Double,
     remainingBudget: Double,
-    spentPercentage: Float
+    spentPercentage: Float,
+    onAnalyticsClick: () -> Unit = {}
 ) {
     val mainTextColor = MaterialTheme.colorScheme.onSurface
     val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -565,17 +568,22 @@ fun TotalSpentCard(
                     )
                 }
 
-                OutlinedButton(
-                    onClick = { /* TODO: Navigate to Analytics */ },
+                FilledTonalButton(
+                    onClick = onAnalyticsClick,
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, dividerColor),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = mainTextColor
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface
                     ),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                     modifier = Modifier.height(36.dp)
                 ) {
+                    Icon(
+                        imageVector = Icons.Rounded.TrendingUp,
+                        contentDescription = "Analytics",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "View Analytics",
                         fontSize = 12.sp,

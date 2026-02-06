@@ -27,6 +27,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hello.lets.test.data.AppDatabase
 import com.hello.lets.test.data.entity.TransactionType
+import com.hello.lets.test.data.preferences.AppPreferences
 import com.hello.lets.test.ui.theme.LiterataFontFamily
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -478,6 +479,7 @@ data class InsightsUiState(
 class InsightsViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     private val transactionDao = db.transactionDao()
+    private val appPreferences = AppPreferences.getInstance(application)
     
     private val _uiState = MutableStateFlow(InsightsUiState())
     val uiState: StateFlow<InsightsUiState> = _uiState.asStateFlow()
@@ -559,13 +561,14 @@ class InsightsViewModel(application: Application) : AndroidViewModel(application
                 icon = Icons.Rounded.CalendarToday
             ))
             
-            if (thisMonthSpent > 50000) {
+            val monthlyBudget = appPreferences.monthlyBudget.toDouble()
+            if (thisMonthSpent > monthlyBudget) {
                 insights.add(Insight(
                     title = "High Spending Alert",
-                    description = "You've crossed ₹50,000 this month. Consider setting a budget limit.",
+                    description = "You've crossed your monthly budget of ₹${String.format("%,.0f", monthlyBudget)}. Consider reviewing your expenses.",
                     type = InsightType.ALERT,
                     icon = Icons.Rounded.Warning,
-                    actionText = "Set budget →"
+                    actionText = "Review spending →"
                 ))
             }
             

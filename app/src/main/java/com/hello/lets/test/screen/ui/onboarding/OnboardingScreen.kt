@@ -33,6 +33,7 @@ import com.hello.lets.test.data.AppDatabase
 import com.hello.lets.test.data.entity.BankAccount
 import com.hello.lets.test.data.entity.BankCodes
 import com.hello.lets.test.data.entity.UserProfile
+import com.hello.lets.test.data.preferences.AppPreferences
 import com.hello.lets.test.ui.theme.LiterataFontFamily
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +45,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.ui.tooling.preview.Preview
 
 /**
  * Onboarding screen for first-time users.
@@ -111,8 +113,10 @@ fun OnboardingScreen(
                     1 -> ProfileStep(
                         name = uiState.name,
                         phone = uiState.phone,
+                        monthlyBudget = uiState.monthlyBudget,
                         onNameChange = { viewModel.updateName(it) },
                         onPhoneChange = { viewModel.updatePhone(it) },
+                        onBudgetChange = { viewModel.updateMonthlyBudget(it) },
                         onNext = { viewModel.nextStep() },
                         onBack = { viewModel.previousStep() }
                     )
@@ -282,8 +286,10 @@ private fun FeatureItem(
 private fun ProfileStep(
     name: String,
     phone: String,
+    monthlyBudget: String,
     onNameChange: (String) -> Unit,
     onPhoneChange: (String) -> Unit,
+    onBudgetChange: (String) -> Unit,
     onNext: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -392,6 +398,7 @@ private fun ProfileStep(
                     color = Color.White.copy(alpha = 0.4f)
                 )
             },
+
             leadingIcon = {
                 Icon(
                     Icons.Rounded.Phone,
@@ -411,6 +418,61 @@ private fun ProfileStep(
             shape = RoundedCornerShape(12.dp),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            textStyle = LocalTextStyle.current.copy(
+                fontFamily = LiterataFontFamily,
+                fontSize = 16.sp
+            )
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Monthly Budget field
+        Text(
+            text = "MONTHLY BUDGET",
+            fontSize = 11.sp,
+            fontFamily = LiterataFontFamily,
+            fontWeight = FontWeight.Medium,
+            color = Color.White.copy(alpha = 0.6f),
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = monthlyBudget,
+            onValueChange = { value ->
+                // Only allow numeric input
+                if (value.isEmpty() || value.all { it.isDigit() }) {
+                    onBudgetChange(value)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = {
+                Text(
+                    "Enter your monthly budget (e.g., 50000)",
+                    fontFamily = LiterataFontFamily,
+                    color = Color.White.copy(alpha = 0.4f)
+                )
+            },
+            leadingIcon = {
+                Text(
+                    "₹",
+                    fontSize = 20.sp,
+                    fontFamily = LiterataFontFamily,
+                    color = primaryGreen,
+                    modifier = Modifier.padding(start = 12.dp)
+                )
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedContainerColor = surfaceColor,
+                focusedContainerColor = surfaceColor,
+                unfocusedBorderColor = Color.Transparent,
+                focusedBorderColor = primaryGreen,
+                cursorColor = primaryGreen,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White
+            ),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             textStyle = LocalTextStyle.current.copy(
                 fontFamily = LiterataFontFamily,
                 fontSize = 16.sp
@@ -540,6 +602,24 @@ private fun BankAccountsStep(
             }
         } else {
             // Empty state - show quick add buttons
+
+            OutlinedButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = primaryGreen
+                ),
+                border = ButtonDefaults.outlinedButtonBorder.copy(
+                    brush = Brush.linearGradient(listOf(primaryGreen, primaryGreen))
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add Bank Using IFSC", fontFamily = LiterataFontFamily)
+            }
+
+
             Text(
                 text = "POPULAR BANKS",
                 fontSize = 11.sp,
@@ -976,6 +1056,7 @@ data class OnboardingUiState(
     val currentStep: Int = 0,
     val name: String = "",
     val phone: String = "",
+    val monthlyBudget: String = "",
     val bankAccounts: List<BankAccountEntry> = emptyList()
 )
 
@@ -984,6 +1065,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     private val db = AppDatabase.getDatabase(application)
     private val userProfileDao = db.userProfileDao()
     private val bankAccountDao = db.bankAccountDao()
+    private val appPreferences = AppPreferences.getInstance(application)
     
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
@@ -1002,6 +1084,10 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     
     fun updatePhone(phone: String) {
         _uiState.value = _uiState.value.copy(phone = phone)
+    }
+    
+    fun updateMonthlyBudget(budget: String) {
+        _uiState.value = _uiState.value.copy(monthlyBudget = budget)
     }
     
     fun addBankAccount(name: String, code: String, accountNumber: String?) {
@@ -1023,6 +1109,10 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     
     fun completeOnboarding() {
         viewModelScope.launch {
+            // Save monthly budget to preferences
+            val budgetValue = _uiState.value.monthlyBudget.toFloatOrNull() ?: 50000f
+            appPreferences.monthlyBudget = budgetValue
+            
             // Save user profile
             val profile = UserProfile(
                 name = _uiState.value.name.ifBlank { "User" },

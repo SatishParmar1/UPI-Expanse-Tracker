@@ -35,6 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hello.lets.test.data.entity.Budget
 import com.hello.lets.test.data.entity.BudgetType
 import com.hello.lets.test.data.AppDatabase
+import com.hello.lets.test.data.preferences.AppPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -741,15 +742,23 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
     private val transactionDao = db.transactionDao()
     private val categoryDao = db.categoryDao()
     private val budgetDao = db.budgetDao()
+    private val appPreferences = AppPreferences.getInstance(application)
     
-    private val _uiState = MutableStateFlow(AnalyticsUiState())
-    val uiState: StateFlow<AnalyticsUiState> = _uiState.asStateFlow()
+    private val _uiState: MutableStateFlow<AnalyticsUiState>
+    val uiState: StateFlow<AnalyticsUiState>
     
     // Current month date range
     private val currentMonthStart: Long
     private val currentMonthEnd: Long
     
     init {
+        val monthlyBudget = appPreferences.monthlyBudget.toDouble()
+        _uiState = MutableStateFlow(AnalyticsUiState(
+            budgetAmount = monthlyBudget,
+            remainingBudget = monthlyBudget
+        ))
+        uiState = _uiState.asStateFlow()
+        
         val calendar = Calendar.getInstance()
         
         // Start of current month
@@ -1079,8 +1088,8 @@ data class BudgetUiModel(
 
 data class AnalyticsUiState(
     val totalSpent: Double = 0.0,
-    val budgetAmount: Double = 50000.0,
-    val remainingBudget: Double = 50000.0,
+    val budgetAmount: Double = 0.0,
+    val remainingBudget: Double = 0.0,
     val dailyAverage: Double = 0.0,
     val selectedPeriod: String = "Week",
     val dateRange: String = "",

@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -89,15 +90,7 @@ fun GoalsScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = onAddGoalClick
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = "Add Goal",
-                            tint = primaryGreen
-                        )
-                    }
+
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = darkBackground
@@ -297,23 +290,7 @@ fun GoalCard(
                 }
                 
                 // Priority Badge
-                if (goal.priority == GoalPriority.HIGH) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(primaryGreen.copy(alpha = 0.2f))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "HIGH\nPRIORITY",
-                            fontSize = 8.sp,
-                            fontFamily = LiterataFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            color = primaryGreen,
-                            lineHeight = 10.sp
-                        )
-                    }
-                }
+
             }
             
             Spacer(modifier = Modifier.height(20.dp))
@@ -357,8 +334,25 @@ fun GoalCard(
             // Progress percentage
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                if (goal.priority == GoalPriority.HIGH) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(primaryGreen.copy(alpha = 0.2f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "HIGH\nPRIORITY",
+                            fontSize = 8.sp,
+                            fontFamily = LiterataFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            color = primaryGreen,
+                            lineHeight = 10.sp
+                        )
+                    }
+                }
                 Text(
                     text = "${goal.progressPercentage.toInt()}% Achieved",
                     fontSize = 12.sp,

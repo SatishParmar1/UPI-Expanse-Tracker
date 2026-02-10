@@ -75,6 +75,7 @@ data class Transaction(
  * Type of financial transaction.
  */
 enum class TransactionType {
-    DEBIT,   // Money spent/debited
-    CREDIT   // Money received/credited
+    DEBIT,    // Money spent/debited
+    CREDIT,   // Money received/credited
+    TRANSFER  // Money transferred between own accounts (not counted in spending/income)
 }

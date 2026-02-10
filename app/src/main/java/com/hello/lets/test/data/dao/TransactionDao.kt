@@ -102,6 +102,32 @@ interface TransactionDao {
     suspend fun findByRawSms(rawSms: String): Transaction?
     
     /**
+     * Find transaction by UPI/IMPS/NEFT reference ID (for cross-sender duplicate detection).
+     * If two SMSes (bank + UPI app) share the same reference ID, they are the same transaction.
+     */
+    @Query("SELECT * FROM transactions WHERE referenceId = :referenceId AND referenceId IS NOT NULL LIMIT 1")
+    suspend fun findByReferenceId(referenceId: String): Transaction?
+    
+    /**
+     * Find a potential duplicate transaction by matching amount, type, and a close time window.
+     * Used when reference ID is not available — if the same amount + type occurs within
+     * a few minutes, it's almost certainly the same transaction from a different sender.
+     */
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE amount = :amount 
+        AND transactionType = :transactionType 
+        AND transactionDate BETWEEN :startTime AND :endTime 
+        LIMIT 1
+    """)
+    suspend fun findDuplicate(
+        amount: Double, 
+        transactionType: String, 
+        startTime: Long, 
+        endTime: Long
+    ): Transaction?
+    
+    /**
      * Insert a new transaction.
      */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -136,6 +162,41 @@ interface TransactionDao {
      */
     @Query("SELECT COUNT(*) FROM transactions")
     fun getCount(): Flow<Int>
+    
+    /**
+     * Find a potential inter-bank transfer counterpart.
+     * When user transfers from Bank A to Bank B, Bank A sends DEBIT SMS and Bank B sends CREDIT SMS.
+     * This finds the opposite-type transaction with the same amount from a DIFFERENT bank account
+     * within a time window.
+     */
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE amount = :amount 
+        AND transactionType = :oppositeType 
+        AND bankAccountId != :currentBankAccountId 
+        AND bankAccountId IS NOT NULL
+        AND transactionDate BETWEEN :startTime AND :endTime 
+        LIMIT 1
+    """)
+    suspend fun findTransferCounterpart(
+        amount: Double,
+        oppositeType: String,
+        currentBankAccountId: Long,
+        startTime: Long,
+        endTime: Long
+    ): Transaction?
+    
+    /**
+     * Update the transaction type (e.g., mark as TRANSFER).
+     */
+    @Query("UPDATE transactions SET transactionType = :newType WHERE id = :transactionId")
+    suspend fun updateTransactionType(transactionId: Long, newType: String)
+
+    /**
+     * Get transactions for a specific bank account.
+     */
+    @Query("SELECT * FROM transactions WHERE bankAccountId = :bankAccountId ORDER BY transactionDate DESC")
+    fun getTransactionsByBankAccount(bankAccountId: Long): Flow<List<Transaction>>
 }
 
 /**

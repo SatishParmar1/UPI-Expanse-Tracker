@@ -189,6 +189,16 @@ fun SearchScreen(
                             label = { Text("This Week", fontFamily = LiterataFontFamily) }
                         )
                     }
+                    item {
+                        FilterChip(
+                            selected = uiState.selectedFilter == SearchFilter.TRANSFER,
+                            onClick = { viewModel.setFilter(SearchFilter.TRANSFER) },
+                            label = { Text("Transfers", fontFamily = LiterataFontFamily) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.2f)
+                            )
+                        )
+                    }
                 }
             }
 
@@ -306,9 +316,19 @@ fun SearchResultItem(
 ) {
     val primaryGreen = Color(0xFF4CAF50)
     val dangerRed = Color(0xFFEF4444)
+    val transferBlue = Color(0xFF3B82F6)
     val isDebit = transaction.transactionType == TransactionType.DEBIT
-    val amountColor = if (isDebit) dangerRed else primaryGreen
-    val amountPrefix = if (isDebit) "-" else "+"
+    val isTransfer = transaction.transactionType == TransactionType.TRANSFER
+    val amountColor = when {
+        isTransfer -> transferBlue
+        isDebit -> dangerRed
+        else -> primaryGreen
+    }
+    val amountPrefix = when {
+        isTransfer -> "↔"
+        isDebit -> "-"
+        else -> "+"
+    }
     
     Box(
         modifier = Modifier
@@ -336,7 +356,11 @@ fun SearchResultItem(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (isDebit) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+                        imageVector = when {
+                            isTransfer -> Icons.Rounded.SwapHoriz
+                            isDebit -> Icons.Rounded.ArrowUpward
+                            else -> Icons.Rounded.ArrowDownward
+                        },
                         contentDescription = null,
                         tint = amountColor,
                         modifier = Modifier.size(20.dp)
@@ -379,7 +403,7 @@ private fun formatDate(timestamp: Long): String {
 }
 
 // Data classes
-enum class SearchFilter { ALL, DEBIT, CREDIT, TODAY, THIS_WEEK }
+enum class SearchFilter { ALL, DEBIT, CREDIT, TODAY, THIS_WEEK, TRANSFER }
 
 data class SearchUiState(
     val searchQuery: String = "",
@@ -449,6 +473,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         filtered = when (filter) {
             SearchFilter.DEBIT -> filtered.filter { it.transactionType == TransactionType.DEBIT }
             SearchFilter.CREDIT -> filtered.filter { it.transactionType == TransactionType.CREDIT }
+            SearchFilter.TRANSFER -> filtered.filter { it.transactionType == TransactionType.TRANSFER }
             SearchFilter.TODAY -> {
                 calendar.set(Calendar.HOUR_OF_DAY, 0)
                 calendar.set(Calendar.MINUTE, 0)

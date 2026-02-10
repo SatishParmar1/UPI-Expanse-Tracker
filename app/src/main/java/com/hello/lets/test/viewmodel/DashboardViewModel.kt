@@ -140,75 +140,134 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         continue
                     }
                     
-                    // Check if already processed
-                    val existing = repository.findTransactionByRawSms(sms.body)
-                    if (existing != null) {
+                    // ===== SMART DEDUPLICATION =====
+                    // Layer 1: Exact raw SMS body match (same message re-read)
+                    val existingByRawSms = repository.findTransactionByRawSms(sms.body)
+                    if (existingByRawSms != null) {
                         continue
                     }
                     
-                    // Parse the SMS
+                    // Parse the SMS first so we can use parsed data for dedup
                     val parsed = transactionParser.parse(sms.body)
                     
-                    // Only save if we extracted valid data
-                    if (parsed.amount != null && parsed.transactionType != null) {
-                        // Find matching category based on rules
-                        val categoryId = findCategoryForMerchant(parsed.merchant, rules)
+                    // Only proceed if we extracted valid data
+                    if (parsed.amount == null || parsed.transactionType == null) {
+                        continue
+                    }
+                    
+                    // Layer 2: Same UPI/IMPS/NEFT reference ID (bank SMS + UPI app SMS)
+                    if (parsed.referenceId != null) {
+                        val existingByRef = repository.findTransactionByReferenceId(parsed.referenceId)
+                        if (existingByRef != null) {
+                            continue // Same transaction already recorded from another sender
+                        }
+                    }
+                    
+                    // Layer 3: Same amount + type within 5-minute window
+                    // When bank and UPI app send SMS for same transaction, timestamps 
+                    // are usually within seconds of each other
+                    val timeWindowMs = 5 * 60 * 1000L // 5 minutes
+                    val existingByAmountTime = repository.findDuplicateTransaction(
+                        amount = parsed.amount,
+                        transactionType = parsed.transactionType.name,
+                        startTime = sms.date - timeWindowMs,
+                        endTime = sms.date + timeWindowMs
+                    )
+                    if (existingByAmountTime != null) {
+                        continue // Same transaction already recorded from another sender
+                    }
+                    
+                    // ===== NOT A DUPLICATE — Insert new transaction =====
+                    
+                    // Find matching category based on rules
+                    val categoryId = findCategoryForMerchant(parsed.merchant, rules)
+                    
+                    // Detect bank from sender
+                    val bankInfo = com.hello.lets.test.data.entity.BankCodes.getBankFromSender(sms.address)
+                    var bankAccountId: Long? = null
+                    
+                    if (bankInfo != null) {
+                        val (bankCode, bankName) = bankInfo
                         
-                        // Detect bank from sender
-                        val bankInfo = com.hello.lets.test.data.entity.BankCodes.getBankFromSender(sms.address)
-                        var bankAccountId: Long? = null
+                        // Find existing account or create new one
+                        var account = existingAccounts.find { it.bankCode == bankCode }
                         
-                        if (bankInfo != null) {
-                            val (bankCode, bankName) = bankInfo
+                        if (account == null) {
+                            // Create new bank account
+                            val newAccount = com.hello.lets.test.data.entity.BankAccount(
+                                bankName = bankName,
+                                bankCode = bankCode,
+                                accountNumber = parsed.accountNumber,
+                                currentBalance = parsed.balance ?: 0.0,
+                                isDefault = existingAccounts.isEmpty(),
+                                colorHex = com.hello.lets.test.data.entity.BankCodes.getBankColor(bankCode)
+                            )
+                            val newId = database.bankAccountDao().insert(newAccount)
+                            bankAccountId = newId
+                        } else {
+                            bankAccountId = account.id
                             
-                            // Find existing account or create new one
-                            var account = existingAccounts.find { it.bankCode == bankCode }
+                            // Update balance if available in SMS
+                            if (parsed.balance != null) {
+                                database.bankAccountDao().updateBalance(account.id, parsed.balance)
+                            }
                             
-                            if (account == null) {
-                                // Create new bank account
-                                val newAccount = com.hello.lets.test.data.entity.BankAccount(
-                                    bankName = bankName,
-                                    bankCode = bankCode,
-                                    accountNumber = parsed.accountNumber,
-                                    currentBalance = parsed.balance ?: 0.0,
-                                    isDefault = existingAccounts.isEmpty(), // Make default if it's the first one
-                                    colorHex = com.hello.lets.test.data.entity.BankCodes.getBankColor(bankCode)
-                                )
-                                val newId = database.bankAccountDao().insert(newAccount)
-                                bankAccountId = newId
-                            } else {
-                                bankAccountId = account.id
-                                
-                                // Update balance if available in SMS
-                                if (parsed.balance != null) {
-                                    database.bankAccountDao().updateBalance(account.id, parsed.balance)
-                                }
-                                
-                                // Update account number if available and missing
-                                if (account.accountNumber == null && parsed.accountNumber != null) {
-                                    val updatedAccount = account.copy(accountNumber = parsed.accountNumber)
-                                    database.bankAccountDao().update(updatedAccount)
-                                }
+                            // Update account number if available and missing
+                            if (account.accountNumber == null && parsed.accountNumber != null) {
+                                val updatedAccount = account.copy(accountNumber = parsed.accountNumber)
+                                database.bankAccountDao().update(updatedAccount)
                             }
                         }
+                    }
+                    
+                    val transaction = Transaction(
+                        amount = parsed.amount,
+                        merchant = parsed.merchant ?: extractSenderName(sms.address),
+                        categoryId = categoryId,
+                        transactionType = parsed.transactionType,
+                        transactionDate = sms.date,
+                        rawSmsContent = sms.body,
+                        smsAddress = sms.address,
+                        referenceId = parsed.referenceId,
+                        accountNumber = parsed.accountNumber,
+                        balanceAfter = parsed.balance,
+                        bankAccountId = bankAccountId
+                    )
+                    
+                    val id = repository.insertTransaction(transaction)
+                    if (id > 0) {
+                        newTransactionCount++
                         
-                        val transaction = Transaction(
-                            amount = parsed.amount,
-                            merchant = parsed.merchant ?: extractSenderName(sms.address),
-                            categoryId = categoryId,
-                            transactionType = parsed.transactionType,
-                            transactionDate = sms.date,
-                            rawSmsContent = sms.body,
-                            smsAddress = sms.address,
-                            referenceId = parsed.referenceId,
-                            accountNumber = parsed.accountNumber,
-                            balanceAfter = parsed.balance,
-                            bankAccountId = bankAccountId
-                        )
-                        
-                        val id = repository.insertTransaction(transaction)
-                        if (id > 0) {
-                            newTransactionCount++
+                        // ===== INTER-BANK TRANSFER DETECTION =====
+                        // If user transfers from Bank A to Bank B:
+                        //   Bank A sends "Rs.5000 debited" (DEBIT)
+                        //   Bank B sends "Rs.5000 credited" (CREDIT)
+                        // Both should exist for per-account tracking, but marked as TRANSFER
+                        // so they don't inflate spending/income totals.
+                        if (bankAccountId != null) {
+                            val oppositeType = when (parsed.transactionType) {
+                                TransactionType.DEBIT -> TransactionType.CREDIT.name
+                                TransactionType.CREDIT -> TransactionType.DEBIT.name
+                                else -> null
+                            }
+                            
+                            if (oppositeType != null) {
+                                val transferTimeWindowMs = 5 * 60 * 1000L // 5 minutes
+                                val counterpart = repository.findTransferCounterpart(
+                                    amount = parsed.amount,
+                                    oppositeType = oppositeType,
+                                    currentBankAccountId = bankAccountId,
+                                    startTime = sms.date - transferTimeWindowMs,
+                                    endTime = sms.date + transferTimeWindowMs
+                                )
+                                
+                                if (counterpart != null) {
+                                    // Found a matching counterpart — this is an inter-bank transfer!
+                                    // Mark BOTH transactions as TRANSFER
+                                    repository.updateTransactionType(id, TransactionType.TRANSFER.name)
+                                    repository.updateTransactionType(counterpart.id, TransactionType.TRANSFER.name)
+                                }
+                            }
                         }
                     }
                 }

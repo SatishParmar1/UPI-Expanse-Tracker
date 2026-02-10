@@ -143,6 +143,15 @@ fun AllTransactionsScreen(
                         selectedLabelColor = primaryGreen
                     )
                 )
+                FilterChip(
+                    selected = uiState.filter == TransactionFilter.TRANSFERS,
+                    onClick = { viewModel.setFilter(TransactionFilter.TRANSFERS) },
+                    label = { Text("Transfers", fontFamily = LiterataFontFamily) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.2f),
+                        selectedLabelColor = Color(0xFF3B82F6)
+                    )
+                )
             }
             
             // Transaction Summary
@@ -217,8 +226,10 @@ private fun TransactionListItem(
     onClick: () -> Unit
 ) {
     val primaryGreen = Color(0xFF4CAF50)
+    val transferBlue = Color(0xFF3B82F6)
     val surfaceColor = MaterialTheme.colorScheme.surface
     val isCredit = transaction.transactionType == TransactionType.CREDIT
+    val isTransfer = transaction.transactionType == TransactionType.TRANSFER
     
     Box(
         modifier = Modifier
@@ -237,7 +248,13 @@ private fun TransactionListItem(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (isCredit) primaryGreen.copy(alpha = 0.15f) else Color(0xFFEF4444).copy(alpha = 0.15f)),
+                    .background(
+                        when {
+                            isTransfer -> transferBlue.copy(alpha = 0.15f)
+                            isCredit -> primaryGreen.copy(alpha = 0.15f)
+                            else -> Color(0xFFEF4444).copy(alpha = 0.15f)
+                        }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -245,7 +262,11 @@ private fun TransactionListItem(
                     fontSize = 16.sp,
                     fontFamily = LiterataFontFamily,
                     fontWeight = FontWeight.Bold,
-                    color = if (isCredit) primaryGreen else Color(0xFFEF4444)
+                    color = when {
+                        isTransfer -> transferBlue
+                        isCredit -> primaryGreen
+                        else -> Color(0xFFEF4444)
+                    }
                 )
             }
             
@@ -271,26 +292,44 @@ private fun TransactionListItem(
             // Amount
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "${if (isCredit) "+" else "-"}₹${String.format(Locale.US, "%,.0f", transaction.amount)}",
+                    text = "${if (isTransfer) "↔" else if (isCredit) "+" else "-"}₹${String.format(Locale.US, "%,.0f", transaction.amount)}",
                     fontSize = 16.sp,
                     fontFamily = LiterataFontFamily,
                     fontWeight = FontWeight.Bold,
-                    color = if (isCredit) primaryGreen else MaterialTheme.colorScheme.onSurface
+                    color = when {
+                        isTransfer -> transferBlue
+                        isCredit -> primaryGreen
+                        else -> MaterialTheme.colorScheme.onSurface
+                    }
                 )
                 
                 // Type Badge
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
-                        .background(if (isCredit) primaryGreen.copy(alpha = 0.1f) else Color(0xFFEF4444).copy(alpha = 0.1f))
+                        .background(
+                            when {
+                                isTransfer -> transferBlue.copy(alpha = 0.1f)
+                                isCredit -> primaryGreen.copy(alpha = 0.1f)
+                                else -> Color(0xFFEF4444).copy(alpha = 0.1f)
+                            }
+                        )
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = if (isCredit) "CREDIT" else "DEBIT",
+                        text = when {
+                            isTransfer -> "TRANSFER"
+                            isCredit -> "CREDIT"
+                            else -> "DEBIT"
+                        },
                         fontSize = 9.sp,
                         fontFamily = LiterataFontFamily,
                         fontWeight = FontWeight.Bold,
-                        color = if (isCredit) primaryGreen else Color(0xFFEF4444),
+                        color = when {
+                            isTransfer -> transferBlue
+                            isCredit -> primaryGreen
+                            else -> Color(0xFFEF4444)
+                        },
                         letterSpacing = 0.5.sp
                     )
                 }
@@ -305,7 +344,7 @@ private fun formatDate(timestamp: Long): String {
 }
 
 enum class TransactionFilter {
-    ALL, DEBITS, CREDITS
+    ALL, DEBITS, CREDITS, TRANSFERS
 }
 
 // ViewModel
@@ -330,6 +369,7 @@ class AllTransactionsViewModel(application: Application) : AndroidViewModel(appl
                     TransactionFilter.ALL -> allTransactions
                     TransactionFilter.DEBITS -> allTransactions.filter { it.transactionType == TransactionType.DEBIT }
                     TransactionFilter.CREDITS -> allTransactions.filter { it.transactionType == TransactionType.CREDIT }
+                    TransactionFilter.TRANSFERS -> allTransactions.filter { it.transactionType == TransactionType.TRANSFER }
                 }
                 _allTransactions.value = filtered
             }

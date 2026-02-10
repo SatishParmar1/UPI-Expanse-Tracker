@@ -48,6 +48,32 @@ class TransactionRepository(
     suspend fun findTransactionByRawSms(rawSms: String): Transaction? =
         transactionDao.findByRawSms(rawSms)
     
+    suspend fun findTransactionByReferenceId(referenceId: String): Transaction? =
+        transactionDao.findByReferenceId(referenceId)
+    
+    suspend fun findDuplicateTransaction(
+        amount: Double, 
+        transactionType: String, 
+        startTime: Long, 
+        endTime: Long
+    ): Transaction? =
+        transactionDao.findDuplicate(amount, transactionType, startTime, endTime)
+    
+    suspend fun findTransferCounterpart(
+        amount: Double,
+        oppositeType: String,
+        currentBankAccountId: Long,
+        startTime: Long,
+        endTime: Long
+    ): Transaction? =
+        transactionDao.findTransferCounterpart(amount, oppositeType, currentBankAccountId, startTime, endTime)
+    
+    suspend fun updateTransactionType(transactionId: Long, newType: String) =
+        transactionDao.updateTransactionType(transactionId, newType)
+    
+    fun getTransactionsByBankAccount(bankAccountId: Long): Flow<List<Transaction>> =
+        transactionDao.getTransactionsByBankAccount(bankAccountId)
+    
     suspend fun insertTransaction(transaction: Transaction): Long =
         transactionDao.insert(transaction)
     

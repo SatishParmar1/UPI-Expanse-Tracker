@@ -705,8 +705,18 @@ fun TransactionItem(
     onClick: () -> Unit = {}
 ) {
     val isCredit = transaction.transactionType == TransactionType.CREDIT
-    val amountColor = if (isCredit) positiveColor else negativeColor
-    val amountPrefix = if (isCredit) "+ " else "- "
+    val isTransfer = transaction.transactionType == TransactionType.TRANSFER
+    val transferBlue = Color(0xFF3B82F6)
+    val amountColor = when {
+        isTransfer -> transferBlue
+        isCredit -> positiveColor
+        else -> negativeColor
+    }
+    val amountPrefix = when {
+        isTransfer -> "↔ "
+        isCredit -> "+ "
+        else -> "- "
+    }
     val iconBgColor = amountColor.copy(alpha = 0.1f)
 
     Row(
@@ -728,7 +738,7 @@ fun TransactionItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = getCategoryIcon(transaction.categoryId),
+                    imageVector = if (isTransfer) Icons.Rounded.SwapHoriz else getCategoryIcon(transaction.categoryId),
                     contentDescription = null,
                     tint = amountColor,
                     modifier = Modifier.size(24.dp)
@@ -767,7 +777,11 @@ fun TransactionItem(
                 color = amountColor
             )
             Text(
-                text = if (isCredit) "Income" else "Expense",
+                text = when {
+                    isTransfer -> "Transfer"
+                    isCredit -> "Income"
+                    else -> "Expense"
+                },
                 fontSize = 12.sp,
                 fontFamily = LiterataFontFamily,
                 color = subtitleColor
